@@ -1,0 +1,217 @@
+name: Reusable workflow for deploying APIM APIs
+
+on:
+  workflow_call:
+    inputs:
+      sourceBranch:
+        type: string
+        required: true
+      destinationBranch:
+        type: string
+        required: true
+      sourceEnv:
+        type: string
+        required: true
+      destinationEnv:
+        type: string
+        required: true
+      apiCtlEnv:
+        type: string
+        required: true
+      createPromotionPr:
+        type: boolean
+        required: false
+        default: true
+    secrets:
+      ghBotPat:
+        required: true
+      ghBotUsername:
+        required: true
+      ghBotEmail:
+        required: true
+      apimAdminUsername:
+        required: true
+      apimAdminPassword:
+        required: true
+          
+env:
+  GIT_BOT_USERNAME: ${{ secrets.ghBotUsername }}
+  GIT_BOT_PAT: ${{ secrets.ghBotPat }}
+  GIT_BOT_EMAIL: ${{ secrets.ghBotEmail }}
+  APICTL_ENV: ${{ inputs.apiCtlEnv }}
+  APIM_ADMIN_USERNAME: ${{ secrets.apimAdminUsername }}
+  APIM_ADMIN_PASSWORD: ${{ secrets.apimAdminPassword }}
+  SOURCE_BRANCH: ${{ inputs.sourceBranch }}
+  DESTINATION_BRANCH: ${{ inputs.destinationBranch }}
+  SOURCE_ENV: ${{ inputs.sourceEnv }}
+  DESTINATION_ENV: ${{ inputs.destinationEnv }}
+  PIPELINE_REPO: wso2-pipeline
+  GITHUB_ORG: wso2-cicd
+
+jobs:
+  detectChangedApis:
+    name: Detect changed apis
+    runs-on: [self-hosted, macOS, x64, wso2]
+    outputs:
+      changedApis: ${{steps.findChangedApis.outputs.changedApis}}
+    steps:
+      - name: Checkout Pipeline Repo	
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      - name: Find Modified API Definitions
+        id: findChangedApis
+        run: |
+          changedApis=($(git diff --name-only ${{github.event.before}} ${{github.sha}} | grep -E '^apim/apis/[^/]+/[^/]+/release.json' | cut -d '/' -f 3,4 | sed 's@^@"@' | sed 's@$@"@' | sort -u))
+
+          # Quote and join the array elements into a single string
+          changedApisStr=$(IFS=,; echo "${changedApis[*]}")
+      
+          echo "Changed apis: ${changedApisStr}"
+          echo "changedApis=[${changedApisStr}]" >> $GITHUB_OUTPUT
+
+  deployApisToApim:
+    name: Deploy APIM API
+    runs-on: [self-hosted, linux, x64, wso2]
+    needs: [ detectChangedApis ]
+    strategy:
+      max-parallel: 1
+      matrix:
+        changedApi: ${{fromJson(needs.detectChangedApis.outputs.changedApis)}}
+    steps:
+      # - name: Create random work directory
+      #   id: work_dir
+      #   run: |
+      #     random_num=$RANDOM
+      #     work_dir=$(echo "/Users/rajkumarr/projects/personal/wso2-cicd/actions-runner/_work/$random_num")
+      #     echo "Work directory: $work_dir"
+      #     mkdir -p $work_dir
+      #     cd $work_dir
+      #     pwd
+      #     ls
+      #     echo "work_dir=$work_dir" >> $GITHUB_OUTPUT
+
+      - name: Checkout Pipeline Repo	
+        uses: actions/checkout@v4
+
+      - name: Fetch API Release Artifacts
+        id: prepareApiForDeployment
+        env:
+          releaseMetadataPath: "apim/apis/${{matrix.changedApi}}/release.json"
+          # work_dir: ${{ steps.work_dir.outputs.work_dir }}
+        run: |
+
+          pwd
+          ls -lart
+
+          echo "$GIT_BOT_PAT" | gh auth login --with-token
+
+          releaseMetadata=$(cat $releaseMetadataPath)
+          releaseVersion=$(echo "$releaseMetadata" | jq -r '."releaseVersion"')
+          apiRepository=$(echo "$releaseMetadata" | jq -r '."apiRepository"')
+          artifacts=$(echo "$releaseMetadata" | jq -r '."artifacts"')
+
+          apiName=$(echo "${{matrix.changedApi}}" | cut -d '/' -f 1)
+          apiVersion=$(echo "${{matrix.changedApi}}" | cut -d '/' -f 2)
+
+          echo "${{matrix.changedApi}}_releaseVersion=$releaseVersion" >> $GITHUB_OUTPUT
+          echo "${{matrix.changedApi}}_apiRepository=$apiRepository" >> $GITHUB_OUTPUT
+          echo "${{matrix.changedApi}}_apiName=$apiName" >> $GITHUB_OUTPUT
+          echo "${{matrix.changedApi}}_apiVersion=$apiVersion" >> $GITHUB_OUTPUT
+
+          echo "releaseVersion: $releaseVersion, apiRepository: $apiRepository"
+
+          # cd $work_dir
+
+          if [[ $(jq length <<<"$artifacts") -eq 0 ]]; then
+          echo "artifacts is empty."
+          else
+            echo "$artifacts" | jq -c '.[]' | while read -r artifact; do
+              artifact="${artifact//\"/}"
+              echo "Artifact $artifact"
+              pwd
+              ls
+              gh release download $releaseVersion -R $apiRepository -p $artifact
+              unzip $artifact
+              pwd
+              ls
+              # mv $artifact $destination
+            done;
+          fi
+
+          echo "Importing API $apiName-$apiVersion"
+          # export PATH=$PATH:$APICTL_HOME
+          echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
+          apictl import api -f $apiVersion -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params $apiVersion/Conf
+
+      - name: Promote API to ${{ env.DESTINATION_BRANCH }} branch
+        if: ${{ inputs.createPromotionPr }}
+        env:
+          releaseFilePath: "apim/apis/${{matrix.changedApi}}/release.json"
+          releaseVersion: ${{ steps.prepareApiForDeployment.outputs[format('{0}_releaseVersion', matrix.changedApi)] }}
+          apiName: ${{ steps.prepareApiForDeployment.outputs[format('{0}_apiName', matrix.changedApi)] }}
+          apiVersion: ${{ steps.prepareApiForDeployment.outputs[format('{0}_apiVersion', matrix.changedApi)] }}
+          # work_dir: ${{ steps.work_dir.outputs.work_dir }}
+        run: |
+          # cd $work_dir
+          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{env.GITHUB_ORG}}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
+          cd ${{env.PIPELINE_REPO}}
+
+          releaseFileContent=$(cat $releaseFilePath)
+          echo "$releaseFileContent"
+
+          cdBranchName="cd-${{ env.DESTINATION_ENV }}-apim-$apiName-$apiVersion"
+
+          git fetch origin ${{ env.DESTINATION_BRANCH }}:${{ env.DESTINATION_BRANCH }}
+          git checkout ${{ env.DESTINATION_BRANCH }}
+          git checkout -b $cdBranchName ${{ env.DESTINATION_BRANCH }}
+          git branch -a
+          git config --global user.email $GIT_BOT_EMAIL
+          git config --global user.name ${{env.GIT_BOT_USERNAME}}
+
+          if [ -f "$releaseFilePath" ]; then
+            echo "Updating existing file $releaseFilePath"
+            echo "$releaseFileContent" > "$releaseFilePath"
+          else
+            echo "Creating new file and folder"
+            mkdir -p "$(dirname "$releaseFilePath")"
+            echo "$releaseFileContent" > "$releaseFilePath"
+          fi
+
+          commitMsg="[CD] [${{ env.DESTINATION_ENV }}] [APIM-API] [$apiName-$apiVersion] [$releaseVersion]"
+          prBody="- A new release $releaseVersion is now available for the $apiName-$apiVersion in ${{ env.SOURCE_ENV }}. Please merge this PR to deploy to ${{ env.DESTINATION_ENV }}.
+          - This PR is automatically generated and includes the latest release version of the $apiName-$apiVersion
+          - If you wish to deploy a different release version, kindly update the release.json file and create a new PR.
+          "
+
+          git add "$releaseFilePath"
+          git commit -m "$commitMsg"
+          git push -f origin $cdBranchName
+
+          echo "$GIT_BOT_PAT" | gh auth login --with-token
+          prExists=$(gh pr list --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --state OPEN)
+          echo "PR exists: $prExists"
+
+          if [ -z "$prExists" ]; then
+            echo "PR does not exist. Creating a new PR."
+            gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
+          else
+            echo "PR already exists. Updating the PR title and body."
+            # Extract the PR number using awk
+            prNumber=$(echo "$prExists" | awk '{print $1}')
+            echo "Existing PR number: $prNumber"
+            echo "Temporarily closing the PR due to a bug in gh pr edit - https://github.com/cli/cli/issues/8358"
+            gh pr close $prNumber
+            # gh pr edit $prNumber --title "$commitMsg" --body "$prBody"
+            gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
+          fi
+
+      # - name: Cleanup work_dir
+      #   env:
+      #     work_dir: ${{ steps.work_dir.outputs.work_dir }}
+      #   run: |
+      #     echo "Cleaning up work_dir: $work_dir"
+      #     pwd
+      #     ls
+      #     # rm -rf $work_dir
