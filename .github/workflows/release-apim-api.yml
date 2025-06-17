@@ -1,7 +1,12 @@
 name: Reusable workflow for building and releasing WSO2 APIM API repo
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      pomPath:
+        type: string
+        required: false
+        default: apim/pom.xml
 
 env:
   GIT_ORG: wso2-cicd
@@ -147,7 +152,7 @@ jobs:
           for changed_apim_version in "${changed_apim_versions[@]}"; do
 
             echo "changed_apim_version: $changed_apim_version"
-            config_file_path="apim/apis/$CURRENT_REPO_NAME/$changed_apim_version/config.json"
+            config_file_path="apim/apis/$CURRENT_REPO_NAME/$changed_apim_version/release.json"
             json_file=$config_file_path
   
             cat "$json_file"
