@@ -73,7 +73,7 @@ jobs:
 
   deployApisToApim:
     name: Deploy APIM API
-    runs-on: [self-hosted, linux, x64, wso2]
+    runs-on: [self-hosted, macOS, x64, wso2]
     needs: [ detectChangedApis ]
     strategy:
       max-parallel: 1
