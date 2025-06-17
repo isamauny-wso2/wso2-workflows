@@ -161,10 +161,10 @@ jobs:
   
             # Read the JSON file and update the details
             updated_json=$(jq '
-                .release_version = "'"$new_version"'" |
-                .pull_request = "'"$pr_url"'" |
-                .pull_request_title = "'"$pr_title"'" |
-                .pull_request_merged_at = "'"$pr_merged_at"'"
+                .releaseVersion = "'"$new_version"'" |
+                .pullRequest.url = "'"$pr_url"'" |
+                .pullRequest.title = "'"$pr_title"'" |
+                .pullRequest.mergedAt = "'"$pr_merged_at"'"
               ' "$json_file")
   
             echo "$updated_json" > "$json_file"
