@@ -47,6 +47,7 @@ env:
   DESTINATION_ENV: ${{ inputs.destinationEnv }}
   PIPELINE_REPO: wso2-pipeline
   GITHUB_ORG: wso2-cicd
+  APICTL_HOME: /Users/rajkumarr/projects/wso2/cicd/apictl/apictl
 
 jobs:
   detectChangedApis:
@@ -141,7 +142,7 @@ jobs:
           fi
 
           echo "Importing API $apiName-$apiVersion"
-          # export PATH=$PATH:$APICTL_HOME
+          export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
           apictl import api -f $apiVersion -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params $apiVersion/Conf
 
