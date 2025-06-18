@@ -47,6 +47,7 @@ env:
   DESTINATION_ENV: ${{ inputs.destinationEnv }}
   PIPELINE_REPO: wso2-pipeline
   GITHUB_ORG: wso2-cicd
+  # this is not needed if the runner is properly setup with the apictl path
   APICTL_HOME: /Users/rajkumarr/projects/wso2/cicd/apictl/apictl
 
 jobs:
