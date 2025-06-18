@@ -48,7 +48,7 @@ jobs:
       - name: Zip src folder under repo name
         run: |
           mkdir -p $CURRENT_REPO_NAME
-          mv src $CURRENT_REPO_NAME/
+          mv apim $CURRENT_REPO_NAME/
           zip -r $CURRENT_REPO_NAME.zip  $CURRENT_REPO_NAME/apim
       - name: Create GitHub Release
         id: release
