@@ -6,7 +6,6 @@ on:
 env:
   GIT_ORG: wso2-cicd
   GIT_CICD_REPO: wso2-pipeline
-  GIT_CI_BRANCH: main
   GIT_CD_BRANCH: dev
   INITIAL_VERSION: v1.0
   MAX_MINOR_VERSION: 9
@@ -20,72 +19,56 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 5
 
-      - name: Extract Repository Name
+      - name: Extract repository name
         run: echo "CURRENT_REPO_NAME=$(echo $GITHUB_REPOSITORY | cut -d '/' -f 2)" >> $GITHUB_ENV
 
-      - name: Get PR Metadata
+      - name: Fetch PR metadata
         uses: 8BitJonny/gh-get-current-pr@2.1.3
         id: pr
 
-      - name: Create ZIP of src folder
+      - name: Zip src folder under repo name
         run: |
           mkdir -p $CURRENT_REPO_NAME
           mv src $CURRENT_REPO_NAME/
           zip -r $CURRENT_REPO_NAME.zip  $CURRENT_REPO_NAME/src
 
-      - name: Create GitHub Release and Upload Artifact
+      - name: Create GitHub Release
         id: release
         run: |
           echo "${{ env.GIT_BOT_PAT }}" | gh auth login --with-token
           current_version=$(gh release view --repo $GITHUB_REPOSITORY --json tagName --jq '.tagName' || true)
 
           if [ -z $current_version ]; then
-            echo "No releases found."
             new_version=${{env.INITIAL_VERSION}}
           else
-            echo "Current version: $current_version"
-
             # Extract major and minor version components
             major_version=$(echo $current_version | cut -d '.' -f 1 | tr -d 'v')
             minor_version=$(echo $current_version | cut -d '.' -f 2)
 
-            echo "Current major version: $major_version"
-            echo "Current minor version: $minor_version"
-
             # Increment the minor version
             ((++minor_version))
-
-            echo "Next minor version: $minor_version"
 
             # Check if the minor version exceeds the max minor version
             if [ $minor_version -gt ${{env.MAX_MINOR_VERSION}} ]; then
                 # Reset minor version to 0 and increment major version
-                echo "Minor version exceeded ${{env.MAX_MINOR_VERSION}}. Resetting to 0 and incrementing major version."
                 minor_version=0
                 ((++major_version))
-                echo "Next major version: $major_version"
             fi
 
-            # Create the new version string
             new_version="v${major_version}.${minor_version}"
           fi
           
-          # Print the new version
           echo "New version: $new_version"
 
-          pr_url=${{steps.pr.outputs.pr_url}}
-          pr_title="${{steps.pr.outputs.pr_title}}"
-          pr_merged_at="${{steps.pr.outputs.pr_merged_at}}"
-
           release_notes="Release notes for version $new_version
-          - Pull Request Title: $pr_title
-          - Pull Request: $pr_url
-          - Pull Request Merged At: $pr_merged_at
+          - Pull Request Title: ${{steps.pr.outputs.pr_url}}
+          - Pull Request: ${{steps.pr.outputs.pr_title}}
+          - Pull Request Merged At: ${{steps.pr.outputs.pr_merged_at}}
           "
 
           # Release the Packs
@@ -94,8 +77,6 @@ jobs:
           # Release the APIM Pack
           gh release upload $new_version  $CURRENT_REPO_NAME.zip
           
-          echo "Artifacts uploaded to GitHub release."
-
           echo "NEW_VERSION=$new_version" >> $GITHUB_OUTPUT
 
       - name: Update Central CD Config
@@ -113,26 +94,21 @@ jobs:
           pr_title="${{steps.pr.outputs.pr_title}}"
           pr_merged_at="${{steps.pr.outputs.pr_merged_at}}"
 
-          config_file_path="apim/policies/mediation/$CURRENT_REPO_NAME/release.json"
-          json_file=$config_file_path
-
-          cat "$json_file"
+          releaseFilePath="apim/policies/mediation/$CURRENT_REPO_NAME/release.json"
+          releaseFile=$releaseFilePath
 
           new_version=${{steps.release.outputs.NEW_VERSION}}
 
           # Read the JSON file and update the details
           updated_json=$(jq '
               .releaseVersion = "'"$new_version"'" |
-              .pullRequest.url = "'"$pr_url"'" |
-              .pullRequest.title = "'"$pr_title"'" |
-              .pullRequest.mergedAt = "'"$pr_merged_at"'"
-            ' "$json_file")
+              .pullRequest.url = "'"${{steps.pr.outputs.pr_url}}"'" |
+              .pullRequest.title = "'"${{steps.pr.outputs.pr_title}}"'" |
+              .pullRequest.mergedAt = "'"${{steps.pr.outputs.pr_merged_at}}"'"
+            ' "$releaseFile")
 
-          echo "$updated_json" > "$json_file"
+          echo "$updated_json" > "$releaseFile"
 
-          cat "$json_file"
-
-          git add "$config_file_path"
-
+          git add "$releaseFilePath"
           git commit -m "[CD] [Dev] [APIM-Policy] [$CURRENT_REPO_NAME] [$new_version]"
           git push origin ${{env.GIT_CD_BRANCH}}
