@@ -65,7 +65,8 @@ jobs:
       - name: Find Modified Policy Definitions
         id: findChangedPolicies
         run: |
-          changedPolicies=($(git diff --name-only ${{github.event.before}} ${{github.sha}} | grep -E '^apim/policies/mediation/[^/]+/[^/]+/release.json' | cut -d '/' -f 3,4 | sed 's@^@"@' | sed 's@$@"@' | sort -u))
+          cd apim
+          changedPolicies=($(git diff --name-only ${{github.event.before}} ${{github.sha}} | grep -E '^policies/mediation/[^/]+/[^/]+/release.json' | cut -d '/' -f 3,4 | sed 's@^@"@' | sed 's@$@"@' | sort -u))
 
           # Quote and join the array elements into a single string
           changedPoliciesStr=$(IFS=,; echo "${changedPolicies[*]}")
