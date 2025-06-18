@@ -111,6 +111,7 @@ jobs:
           releaseMetadata=$(cat $releaseMetadataPath)
           releaseVersion=$(echo "$releaseMetadata" | jq -r '."releaseVersion"')
           apiRepository=$(echo "$releaseMetadata" | jq -r '."apiRepository"')
+          apiRepoNameOnly=$(echo "$apiRepository" | cut -d '/' -f 2)
           artifacts=$(echo "$releaseMetadata" | jq -r '."artifacts"')
 
           apiName=$(echo "${{matrix.changedApi}}" | cut -d '/' -f 1)
@@ -121,7 +122,7 @@ jobs:
           echo "${{matrix.changedApi}}_apiName=$apiName" >> $GITHUB_OUTPUT
           echo "${{matrix.changedApi}}_apiVersion=$apiVersion" >> $GITHUB_OUTPUT
 
-          echo "releaseVersion: $releaseVersion, apiRepository: $apiRepository"
+          echo "releaseVersion: $releaseVersion, apiRepository: $apiRepository, apiRepoNameOnly: $apiRepoNameOnly"
 
           # cd $work_dir
 
@@ -143,7 +144,8 @@ jobs:
 
           pwd
           ls
-          ls apim/
+          ls $apiRepoNameOnly
+          ls $apiRepoNameOnly/apim
           echo "Importing API $apiName-$apiVersion"
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
