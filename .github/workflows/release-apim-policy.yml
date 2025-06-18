@@ -34,7 +34,9 @@ jobs:
 
       - name: Create ZIP of src folder
         run: |
-          zip -r $CURRENT_REPO_NAME.zip src
+          mkdir -p $CURRENT_REPO_NAME
+          mv src $CURRENT_REPO_NAME/
+          zip -r $CURRENT_REPO_NAME.zip  $CURRENT_REPO_NAME/src
           
       - name: Install GitHub CLI
         run: |
