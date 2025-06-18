@@ -121,7 +121,7 @@ jobs:
           pr_title="${{steps.pr.outputs.pr_title}}"
           pr_merged_at="${{steps.pr.outputs.pr_merged_at}}"
 
-          config_file_path="apim/policies/$CURRENT_REPO_NAME/release.json"
+          config_file_path="apim/policies/mediation/$CURRENT_REPO_NAME/release.json"
           json_file=$config_file_path
 
           cat "$json_file"
