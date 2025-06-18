@@ -117,7 +117,7 @@ jobs:
           echo "Importing Policy ${{matrix.changedPolicyRepo}}"
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
-          # apictl import api -f $apiRepoName/apim/$apiVersion -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params $apiRepoName/apim/$apiVersion/Conf
+          apictl import policy api -f $apiRepoName/src/addHeader -e $APICTL_ENV -k
 
       # - name: Promote API to ${{ env.DESTINATION_BRANCH }} branch
       #   if: ${{ inputs.createPromotionPr }}
