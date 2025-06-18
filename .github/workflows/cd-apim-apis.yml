@@ -141,6 +141,9 @@ jobs:
             done;
           fi
 
+          pwd
+          ls
+          ls apim/
           echo "Importing API $apiName-$apiVersion"
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
