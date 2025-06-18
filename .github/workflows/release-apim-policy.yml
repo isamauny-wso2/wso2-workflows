@@ -66,8 +66,8 @@ jobs:
           echo "New version: $new_version"
 
           release_notes="Release notes for version $new_version
-          - Pull Request Title: ${{steps.pr.outputs.pr_url}}
-          - Pull Request: ${{steps.pr.outputs.pr_title}}
+          - Pull Request Title: ${{steps.pr.outputs.pr_title}}
+          - Pull Request: ${{steps.pr.outputs.pr_url}}
           - Pull Request Merged At: ${{steps.pr.outputs.pr_merged_at}}
           "
 
