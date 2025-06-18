@@ -83,7 +83,7 @@ jobs:
           gh release create $newVersion --title "$CURRENT_REPO_NAME - $newVersion" --notes "$release_notes"
 
           # Release the APIM Pack
-          gh release upload $newVersion  apim/target/*.zip
+          gh release upload $newVersion  $CURRENT_REPO_NAME.zip
 
           echo "NEW_VERSION=$newVersion" >> $GITHUB_OUTPUT
 
