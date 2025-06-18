@@ -144,7 +144,7 @@ jobs:
           echo "Importing API $apiName-$apiVersion"
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
-          apictl import api -f $apiVersion -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params $apiVersion/Conf
+          apictl import api -f apim/$apiVersion -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params apim/$apiVersion/Conf
 
       - name: Promote API to ${{ env.DESTINATION_BRANCH }} branch
         if: ${{ inputs.createPromotionPr }}
