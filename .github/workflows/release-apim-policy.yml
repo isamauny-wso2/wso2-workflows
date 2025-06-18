@@ -1,4 +1,4 @@
-name: Reusable workflow for building and releasing WSO2 APIM Policy repo
+name: Release WSO2 APIM Policy Repository
 
 on:
   workflow_call: {}
@@ -14,8 +14,8 @@ env:
   GIT_BOT_PAT: ${{ secrets.WSO2_GIT_BOT_PAT }}
        
 jobs:
-  build_and_release_apim_policy:
-    name: Build and Release WSO2 APIM Policy
+  release_apim_policy:
+    name: Release WSO2 APIM Policy
     runs-on: ubuntu-latest
 
     steps:
@@ -41,43 +41,38 @@ jobs:
         id: release
         run: |
           echo "${{ env.GIT_BOT_PAT }}" | gh auth login --with-token
-          current_version=$(gh release view --repo $GITHUB_REPOSITORY --json tagName --jq '.tagName' || true)
+          currentVersion=$(gh release view --repo $GITHUB_REPOSITORY --json tagName --jq '.tagName' || true)
 
-          if [ -z $current_version ]; then
-            new_version=${{env.INITIAL_VERSION}}
+          if [ -z $currentVersion ]; then
+            newVersion=${{env.INITIAL_VERSION}}
           else
-            # Extract major and minor version components
-            major_version=$(echo $current_version | cut -d '.' -f 1 | tr -d 'v')
-            minor_version=$(echo $current_version | cut -d '.' -f 2)
+            major=$(echo $currentVersion | cut -d '.' -f 1 | tr -d 'v')
+            minor=$(echo $currentVersion | cut -d '.' -f 2)
 
-            # Increment the minor version
-            ((++minor_version))
-
-            # Check if the minor version exceeds the max minor version
-            if [ $minor_version -gt ${{env.MAX_MINOR_VERSION}} ]; then
-                # Reset minor version to 0 and increment major version
-                minor_version=0
-                ((++major_version))
+            ((++minor))
+            if [ $minor -gt ${{env.MAX_MINOR_VERSION}} ]; then
+                minor=0
+                ((++major))
             fi
 
-            new_version="v${major_version}.${minor_version}"
+            newVersion="v${major}.${minor}"
           fi
           
-          echo "New version: $new_version"
+          echo "New version: $newVersion"
 
-          release_notes="Release notes for version $new_version
+          releaseNotes="Release notes for version $newVersion
           - Pull Request Title: ${{steps.pr.outputs.pr_title}}
           - Pull Request: ${{steps.pr.outputs.pr_url}}
           - Pull Request Merged At: ${{steps.pr.outputs.pr_merged_at}}
           "
 
           # Release the Packs
-          gh release create $new_version --title "$CURRENT_REPO_NAME - $new_version" --notes "$release_notes"
+          gh release create $newVersion --title "$CURRENT_REPO_NAME - $newVersion" --notes "$releaseNotes"
 
           # Release the APIM Pack
-          gh release upload $new_version  $CURRENT_REPO_NAME.zip
+          gh release upload $newVersion  $CURRENT_REPO_NAME.zip
           
-          echo "NEW_VERSION=$new_version" >> $GITHUB_OUTPUT
+          echo "NEW_VERSION=$newVersion" >> $GITHUB_OUTPUT
 
       - name: Update Central CD Config
         run: |
@@ -90,25 +85,21 @@ jobs:
           
           cd ${{env.GIT_CICD_REPO}}
 
-          pr_url=${{steps.pr.outputs.pr_url}}
-          pr_title="${{steps.pr.outputs.pr_title}}"
-          pr_merged_at="${{steps.pr.outputs.pr_merged_at}}"
-
           releaseFilePath="apim/policies/mediation/$CURRENT_REPO_NAME/release.json"
           releaseFile=$releaseFilePath
 
-          new_version=${{steps.release.outputs.NEW_VERSION}}
+          newVersion=${{steps.release.outputs.NEW_VERSION}}
 
           # Read the JSON file and update the details
-          updated_json=$(jq '
-              .releaseVersion = "'"$new_version"'" |
+          updatedReleaseFile=$(jq '
+              .releaseVersion = "'"$newVersion"'" |
               .pullRequest.url = "'"${{steps.pr.outputs.pr_url}}"'" |
               .pullRequest.title = "'"${{steps.pr.outputs.pr_title}}"'" |
               .pullRequest.mergedAt = "'"${{steps.pr.outputs.pr_merged_at}}"'"
             ' "$releaseFile")
 
-          echo "$updated_json" > "$releaseFile"
+          echo "$updatedReleaseFile" > "$releaseFile"
 
           git add "$releaseFilePath"
-          git commit -m "[CD] [Dev] [APIM-Policy] [$CURRENT_REPO_NAME] [$new_version]"
+          git commit -m "[CD] [Dev] [APIM-Policy] [$CURRENT_REPO_NAME] [$newVersion]"
           git push origin ${{env.GIT_CD_BRANCH}}
