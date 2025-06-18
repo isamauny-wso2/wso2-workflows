@@ -1,12 +1,7 @@
 name: Reusable workflow for building and releasing WSO2 APIM Policy repo
 
 on:
-  workflow_call:
-    inputs:
-      pomPath:
-        type: string
-        required: false
-        default: src/pom.xml
+  workflow_call: {}
 
 env:
   GIT_ORG: wso2-cicd
