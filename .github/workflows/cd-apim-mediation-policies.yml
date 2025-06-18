@@ -66,6 +66,7 @@ jobs:
         id: findChangedPolicies
         run: |
           cd apim
+          ls
           changedPolicies=($(git diff --name-only ${{github.event.before}} ${{github.sha}} | grep -E '^policies/mediation/[^/]+/[^/]+/release.json' | cut -d '/' -f 3,4 | sed 's@^@"@' | sed 's@$@"@' | sort -u))
 
           # Quote and join the array elements into a single string
