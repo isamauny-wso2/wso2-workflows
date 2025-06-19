@@ -95,8 +95,8 @@ jobs:
 
           releaseMetadata=$(cat $releaseMetadataPath)
           releaseVersion=$(echo "$releaseMetadata" | jq -r '."releaseVersion"')
-          fullApiRepoPath=$(echo "$releaseMetadata" | jq -r '."apiRepository"')
-          apiRepoName=$(echo "$fullApiRepoPath" | cut -d '/' -f 2)
+          artifactRepositoryPath=$(echo "$releaseMetadata" | jq -r '."artifactRepository"')
+          artifactRepositoryName=$(echo "$artifactRepositoryPath" | cut -d '/' -f 2)
           artifacts=$(echo "$releaseMetadata" | jq -r '."artifacts"')
 
           echo "${{matrix.changedPolicyRepo}}_releaseVersion=$releaseVersion" >> $GITHUB_OUTPUT
@@ -106,7 +106,7 @@ jobs:
           else
             echo "$artifacts" | jq -c '.[]' | while read -r artifact; do
               artifact="${artifact//\"/}"
-              gh release download $releaseVersion -R $fullApiRepoPath -p $artifact
+              gh release download $releaseVersion -R $artifactRepositoryPath -p $artifact
               unzip $artifact
             done;
           fi
@@ -115,7 +115,7 @@ jobs:
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
-          for policy in $apiRepoName/src/*.yaml; do
+          for policy in $artifactRepositoryName/src/*.yaml; do
             echo "Importing rate-limiting policy: $policy"
             apictl import policy rate-limiting -f "$policy" -e "$APICTL_ENV" --update -k
           done

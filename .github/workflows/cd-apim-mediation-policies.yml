@@ -95,8 +95,8 @@ jobs:
 
           releaseMetadata=$(cat $releaseMetadataPath)
           releaseVersion=$(echo "$releaseMetadata" | jq -r '."releaseVersion"')
-          fullApiRepoPath=$(echo "$releaseMetadata" | jq -r '."apiRepository"')
-          apiRepoName=$(echo "$fullApiRepoPath" | cut -d '/' -f 2)
+          artifactRepositoryPath=$(echo "$releaseMetadata" | jq -r '."artifactRepository"')
+          artifactRepositoryName=$(echo "$artifactRepositoryPath" | cut -d '/' -f 2)
           artifacts=$(echo "$releaseMetadata" | jq -r '."artifacts"')
 
           echo "${{matrix.changedPolicyRepo}}_releaseVersion=$releaseVersion" >> $GITHUB_OUTPUT
@@ -106,7 +106,7 @@ jobs:
           else
             echo "$artifacts" | jq -c '.[]' | while read -r artifact; do
               artifact="${artifact//\"/}"
-              gh release download $releaseVersion -R $fullApiRepoPath -p $artifact
+              gh release download $releaseVersion -R $artifactRepositoryPath -p $artifact
               unzip $artifact
             done;
           fi
@@ -116,7 +116,7 @@ jobs:
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
           set +e
-          for policy_path in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
+          for policy_path in $(find $artifactRepositoryName/src -mindepth 2 -maxdepth 2 -type d); do
             policy_name=$(basename "$(dirname "$policy_path")")  # e.g., addQueryParam
             version=$(basename "$policy_path")                   # e.g., v1
 
