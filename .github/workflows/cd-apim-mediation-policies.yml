@@ -135,7 +135,7 @@ jobs:
 
             # Import the policy using apictl
             echo "Importing $policy_name version $version"
-            output=$(apictl import policy api --file "$zip_name" -e "$APICTL_ENV" -k 2>&1)
+            output=$(apictl import policy api --file "$apiRepoName/src/$zip_name" -e "$APICTL_ENV" -k 2>&1)
             exit_code=$?
 
             echo "$output"
