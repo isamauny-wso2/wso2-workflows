@@ -117,7 +117,21 @@ jobs:
           echo "Importing Policy ${{matrix.changedPolicyRepo}}"
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
-          apictl import policy api -f $apiRepoName/src/addHeader -e $APICTL_ENV -k
+
+          set +e
+          output=$(apictl import policy api -f $apiRepoName/src/addHeader -e $APICTL_ENV -k 2>&1)
+          exit_code=$?
+          echo "$output"
+          
+          if [[ $exit_code -ne 0 ]]; then
+            if echo "$output" | grep -q "The API Policy already exists"; then
+              echo "The Policy already exists, skipping import."
+              exit 0
+            else
+              echo "Import failed for another reason."
+              exit $exit_code
+            fi
+          fi
 
       - name: Promote Policy to ${{ env.DESTINATION_BRANCH }} branch
         if: ${{ inputs.createPromotionPr }}
