@@ -118,6 +118,10 @@ jobs:
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
+          for dir in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
+            echo "Importing policy from $dir"
+          done
+
           set +e
           output=$(apictl import policy api -f $apiRepoName/src/addHeader -e $APICTL_ENV -k 2>&1)
           exit_code=$?
