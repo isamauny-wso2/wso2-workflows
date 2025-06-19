@@ -1,0 +1,208 @@
+name: Reusable workflow for deploying APIM Rate Limiting Policies
+
+on:
+  workflow_call:
+    inputs:
+      sourceBranch:
+        type: string
+        required: true
+      destinationBranch:
+        type: string
+        required: true
+      sourceEnv:
+        type: string
+        required: true
+      destinationEnv:
+        type: string
+        required: true
+      apiCtlEnv:
+        type: string
+        required: true
+      createPromotionPr:
+        type: boolean
+        required: false
+        default: true
+    secrets:
+      ghBotPat:
+        required: true
+      ghBotUsername:
+        required: true
+      ghBotEmail:
+        required: true
+      apimAdminUsername:
+        required: true
+      apimAdminPassword:
+        required: true
+          
+env:
+  GIT_BOT_USERNAME: ${{ secrets.ghBotUsername }}
+  GIT_BOT_PAT: ${{ secrets.ghBotPat }}
+  GIT_BOT_EMAIL: ${{ secrets.ghBotEmail }}
+  APICTL_ENV: ${{ inputs.apiCtlEnv }}
+  APIM_ADMIN_USERNAME: ${{ secrets.apimAdminUsername }}
+  APIM_ADMIN_PASSWORD: ${{ secrets.apimAdminPassword }}
+  SOURCE_BRANCH: ${{ inputs.sourceBranch }}
+  DESTINATION_BRANCH: ${{ inputs.destinationBranch }}
+  SOURCE_ENV: ${{ inputs.sourceEnv }}
+  DESTINATION_ENV: ${{ inputs.destinationEnv }}
+  PIPELINE_REPO: wso2-pipeline
+  GITHUB_ORG: wso2-cicd
+  # this is not needed if the runner is properly setup with the apictl path
+  APICTL_HOME: /Users/rajkumarr/projects/wso2/cicd/apictl/apictl
+
+jobs:
+  detectChangedPolicyRepos:
+    name: Detect changed policies
+    runs-on: [self-hosted, macOS, x64, wso2]
+    outputs:
+      changedPolicyRepos: ${{steps.findChangedPolicyRepos.outputs.changedPolicyRepos}}
+    steps:
+      - name: Checkout Pipeline Repo	
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      - name: Find Modified Policy Repos
+        id: findChangedPolicyRepos
+        run: |
+          changedPolicyRepos=($(git diff --name-only ${{github.event.before}} ${{github.sha}} | grep -E '^apim/policies/rate-limiting/[^/]+/release.json' | cut -d '/' -f 4 | sed 's@^@"@' | sed 's@$@"@' | sort -u))
+
+          # Quote and join the array elements into a single string
+          changedPolicyReposStr=$(IFS=,; echo "${changedPolicyRepos[*]}")
+      
+          echo "Changed policy repos: ${changedPolicyReposStr}"
+          echo "changedPolicyRepos=[${changedPolicyReposStr}]" >> $GITHUB_OUTPUT
+
+  deployPoliciesToApim:
+    name: Deploy APIM Policies
+    runs-on: [self-hosted, macOS, x64, wso2]
+    needs: [ detectChangedPolicyRepos ]
+    strategy:
+      max-parallel: 1
+      matrix:
+        changedPolicyRepo: ${{fromJson(needs.detectChangedPolicyRepos.outputs.changedPolicyRepos)}}
+    steps:
+      - name: Checkout Pipeline Repo	
+        uses: actions/checkout@v4
+
+      - name: Fetch Policy Release Artifacts
+        id: preparePolicyForDeployment
+        env:
+          releaseMetadataPath: "apim/policies/rate-limiting/${{matrix.changedPolicyRepo}}/release.json"
+        run: |
+
+          echo "$GIT_BOT_PAT" | gh auth login --with-token
+
+          releaseMetadata=$(cat $releaseMetadataPath)
+          releaseVersion=$(echo "$releaseMetadata" | jq -r '."releaseVersion"')
+          fullApiRepoPath=$(echo "$releaseMetadata" | jq -r '."apiRepository"')
+          apiRepoName=$(echo "$fullApiRepoPath" | cut -d '/' -f 2)
+          artifacts=$(echo "$releaseMetadata" | jq -r '."artifacts"')
+
+          echo "${{matrix.changedPolicyRepo}}_releaseVersion=$releaseVersion" >> $GITHUB_OUTPUT
+
+          if [[ $(jq length <<<"$artifacts") -eq 0 ]]; then
+          echo "artifacts is empty."
+          else
+            echo "$artifacts" | jq -c '.[]' | while read -r artifact; do
+              artifact="${artifact//\"/}"
+              gh release download $releaseVersion -R $fullApiRepoPath -p $artifact
+              unzip $artifact
+            done;
+          fi
+
+          echo "Importing Policy ${{matrix.changedPolicyRepo}}"
+          export PATH=$PATH:$APICTL_HOME
+          echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
+
+          set +e
+          for policy_path in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
+            policy_name=$(basename "$(dirname "$policy_path")")  # e.g., addQueryParam
+            version=$(basename "$policy_path")                   # e.g., v1
+
+            echo "Importing $policy_name version $version"
+
+            # Create a temporary directory with expected structure
+            temp_dir=$(mktemp -d)
+            policy_dir="$temp_dir/$policy_name"
+            mkdir -p "$policy_dir"
+
+            cp "$policy_path"/* "$policy_dir/"
+
+            # Run apictl with the expected folder structure
+            output=$(apictl import policy rate-limiting -f "$policy" -e "$APICTL_ENV" --update)
+            exit_code=$?
+
+            echo "$output"
+
+            # Cleanup
+            rm -rf "$temp_dir"
+
+            # Handle errors
+            if [[ $exit_code -ne 0 ]]; then
+              if echo "$output" | grep -q "The API Policy already exists"; then
+                echo "Policy $policy_name ($version) already exists. Skipping."
+              else
+                echo "Import failed for $policy_name ($version)"
+                exit $exit_code
+              fi
+            fi
+          done
+
+      - name: Promote Policy to ${{ env.DESTINATION_BRANCH }} branch
+        if: ${{ inputs.createPromotionPr }}
+        env:
+          releaseFilePath: "apim/policies/rate-limiting/${{matrix.changedPolicyRepo}}/release.json"
+          releaseVersion: ${{ steps.preparePolicyForDeployment.outputs[format('{0}_releaseVersion', matrix.changedPolicyRepo)] }}
+        run: |
+          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{env.GITHUB_ORG}}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
+          cd ${{env.PIPELINE_REPO}}
+
+          releaseFileContent=$(cat $releaseFilePath)
+          echo "$releaseFileContent"
+
+          cdBranchName="cd-${{ env.DESTINATION_ENV }}-apim-${{matrix.changedPolicyRepo}}"
+
+          git fetch origin ${{ env.DESTINATION_BRANCH }}:${{ env.DESTINATION_BRANCH }}
+          git checkout ${{ env.DESTINATION_BRANCH }}
+          git checkout -b $cdBranchName ${{ env.DESTINATION_BRANCH }}
+          git branch -a
+          git config --global user.email $GIT_BOT_EMAIL
+          git config --global user.name ${{env.GIT_BOT_USERNAME}}
+
+          if [ -f "$releaseFilePath" ]; then
+            echo "Updating existing file $releaseFilePath"
+            echo "$releaseFileContent" > "$releaseFilePath"
+          else
+            echo "Creating new file and folder"
+            mkdir -p "$(dirname "$releaseFilePath")"
+            echo "$releaseFileContent" > "$releaseFilePath"
+          fi
+
+          commitMsg="[CD] [${{ env.DESTINATION_ENV }}] [APIM-Policy] [${{matrix.changedPolicyRepo}}] [$releaseVersion]"
+          prBody="- A new release $releaseVersion is now available for the ${{matrix.changedPolicyRepo}} in ${{ env.SOURCE_ENV }}. Please merge this PR to deploy to ${{ env.DESTINATION_ENV }}.
+          - This PR is automatically generated and includes the latest release version of the ${{matrix.changedPolicyRepo}}
+          - If you wish to deploy a different release version, kindly update the release.json file and create a new PR.
+          "
+
+          git add "$releaseFilePath"
+          git commit -m "$commitMsg"
+          git push -f origin $cdBranchName
+
+          echo "$GIT_BOT_PAT" | gh auth login --with-token
+          prExists=$(gh pr list --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --state OPEN)
+          echo "PR exists: $prExists"
+
+          if [ -z "$prExists" ]; then
+            echo "PR does not exist. Creating a new PR."
+            gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
+          else
+            echo "PR already exists. Updating the PR title and body."
+            # Extract the PR number using awk
+            prNumber=$(echo "$prExists" | awk '{print $1}')
+            echo "Existing PR number: $prNumber"
+            echo "Temporarily closing the PR due to a bug in gh pr edit - https://github.com/cli/cli/issues/8358"
+            gh pr close $prNumber
+            # gh pr edit $prNumber --title "$commitMsg" --body "$prBody"
+            gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
+          fi

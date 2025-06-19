@@ -1,8 +1,10 @@
 name: Release WSO2 APIM Policy Repository
-
 on:
-  workflow_call: {}
-
+  workflow_call:
+    inputs:
+      policyType:
+        type: string
+        required: true  
 env:
   GIT_ORG: wso2-cicd
   GIT_CICD_REPO: wso2-pipeline
@@ -12,6 +14,7 @@ env:
   GIT_BOT_USERNAME: ${{ secrets.WSO2_GIT_BOT_USERNAME }}
   GIT_BOT_EMAIL: ${{ secrets.WSO2_GIT_BOT_EMAIL }}
   GIT_BOT_PAT: ${{ secrets.WSO2_GIT_BOT_PAT }}
+  POLICY_TYPE: ${{ inputs.policyType }}
        
 jobs:
   release_apim_policy:
@@ -85,7 +88,7 @@ jobs:
           
           cd ${{env.GIT_CICD_REPO}}
 
-          releaseFilePath="apim/policies/mediation/$CURRENT_REPO_NAME/release.json"
+          releaseFilePath="apim/policies/${{env.POLICY_TYPE}}/$CURRENT_REPO_NAME/release.json"
           releaseFile=$releaseFilePath
 
           newVersion=${{steps.release.outputs.NEW_VERSION}}
