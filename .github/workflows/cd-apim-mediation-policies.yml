@@ -119,7 +119,7 @@ jobs:
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
           set +e
-          for policy_path in $(find src -mindepth 2 -maxdepth 2 -type d); do
+          for policy_path in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
             policy_name=$(basename $(dirname "$policy_path"))   # e.g., addHeader
             version=$(basename "$policy_path")                  # e.g., v1
             zip_name="${policy_name}_${version}.zip"
