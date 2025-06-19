@@ -117,7 +117,7 @@ jobs:
 
           for policy in $apiRepoName/src/*.yaml; do
             echo "Importing rate-limiting policy: $policy"
-            apictl import policy rate-limiting -f "$policy" -e "$APICTL_ENV" --update
+            apictl import policy rate-limiting -f "$policy" -e "$APICTL_ENV" --update -k
           done
 
       - name: Promote Policy to ${{ env.DESTINATION_BRANCH }} branch
