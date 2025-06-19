@@ -119,60 +119,60 @@ jobs:
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
           apictl import policy api -f $apiRepoName/src/addHeader -e $APICTL_ENV -k
 
-      # - name: Promote API to ${{ env.DESTINATION_BRANCH }} branch
-      #   if: ${{ inputs.createPromotionPr }}
-      #   env:
-      #     releaseFilePath: "apim/policies/mediation/${{matrix.changedPolicyRepo}}/release.json"
-      #     releaseVersion: ${{ steps.preparePolicyForDeployment.outputs[format('{0}_releaseVersion', matrix.changedPolicyRepo)] }}
-      #   run: |
-      #     git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{env.GITHUB_ORG}}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
-      #     cd ${{env.PIPELINE_REPO}}
+      - name: Promote Policy to ${{ env.DESTINATION_BRANCH }} branch
+        if: ${{ inputs.createPromotionPr }}
+        env:
+          releaseFilePath: "apim/policies/mediation/${{matrix.changedPolicyRepo}}/release.json"
+          releaseVersion: ${{ steps.preparePolicyForDeployment.outputs[format('{0}_releaseVersion', matrix.changedPolicyRepo)] }}
+        run: |
+          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{env.GITHUB_ORG}}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
+          cd ${{env.PIPELINE_REPO}}
 
-      #     releaseFileContent=$(cat $releaseFilePath)
-      #     echo "$releaseFileContent"
+          releaseFileContent=$(cat $releaseFilePath)
+          echo "$releaseFileContent"
 
-      #     cdBranchName="cd-${{ env.DESTINATION_ENV }}-apim-${{matrix.changedPolicyRepo}}"
+          cdBranchName="cd-${{ env.DESTINATION_ENV }}-apim-${{matrix.changedPolicyRepo}}"
 
-      #     git fetch origin ${{ env.DESTINATION_BRANCH }}:${{ env.DESTINATION_BRANCH }}
-      #     git checkout ${{ env.DESTINATION_BRANCH }}
-      #     git checkout -b $cdBranchName ${{ env.DESTINATION_BRANCH }}
-      #     git branch -a
-      #     git config --global user.email $GIT_BOT_EMAIL
-      #     git config --global user.name ${{env.GIT_BOT_USERNAME}}
+          git fetch origin ${{ env.DESTINATION_BRANCH }}:${{ env.DESTINATION_BRANCH }}
+          git checkout ${{ env.DESTINATION_BRANCH }}
+          git checkout -b $cdBranchName ${{ env.DESTINATION_BRANCH }}
+          git branch -a
+          git config --global user.email $GIT_BOT_EMAIL
+          git config --global user.name ${{env.GIT_BOT_USERNAME}}
 
-      #     if [ -f "$releaseFilePath" ]; then
-      #       echo "Updating existing file $releaseFilePath"
-      #       echo "$releaseFileContent" > "$releaseFilePath"
-      #     else
-      #       echo "Creating new file and folder"
-      #       mkdir -p "$(dirname "$releaseFilePath")"
-      #       echo "$releaseFileContent" > "$releaseFilePath"
-      #     fi
+          if [ -f "$releaseFilePath" ]; then
+            echo "Updating existing file $releaseFilePath"
+            echo "$releaseFileContent" > "$releaseFilePath"
+          else
+            echo "Creating new file and folder"
+            mkdir -p "$(dirname "$releaseFilePath")"
+            echo "$releaseFileContent" > "$releaseFilePath"
+          fi
 
-      #     commitMsg="[CD] [${{ env.DESTINATION_ENV }}] [APIM-API] [${{matrix.changedPolicyRepo}}] [$releaseVersion]"
-      #     prBody="- A new release $releaseVersion is now available for the ${{matrix.changedPolicyRepo}} in ${{ env.SOURCE_ENV }}. Please merge this PR to deploy to ${{ env.DESTINATION_ENV }}.
-      #     - This PR is automatically generated and includes the latest release version of the ${{matrix.changedPolicyRepo}}
-      #     - If you wish to deploy a different release version, kindly update the release.json file and create a new PR.
-      #     "
+          commitMsg="[CD] [${{ env.DESTINATION_ENV }}] [APIM-Policy] [${{matrix.changedPolicyRepo}}] [$releaseVersion]"
+          prBody="- A new release $releaseVersion is now available for the ${{matrix.changedPolicyRepo}} in ${{ env.SOURCE_ENV }}. Please merge this PR to deploy to ${{ env.DESTINATION_ENV }}.
+          - This PR is automatically generated and includes the latest release version of the ${{matrix.changedPolicyRepo}}
+          - If you wish to deploy a different release version, kindly update the release.json file and create a new PR.
+          "
 
-      #     git add "$releaseFilePath"
-      #     git commit -m "$commitMsg"
-      #     git push -f origin $cdBranchName
+          git add "$releaseFilePath"
+          git commit -m "$commitMsg"
+          git push -f origin $cdBranchName
 
-      #     echo "$GIT_BOT_PAT" | gh auth login --with-token
-      #     prExists=$(gh pr list --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --state OPEN)
-      #     echo "PR exists: $prExists"
+          echo "$GIT_BOT_PAT" | gh auth login --with-token
+          prExists=$(gh pr list --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --state OPEN)
+          echo "PR exists: $prExists"
 
-      #     if [ -z "$prExists" ]; then
-      #       echo "PR does not exist. Creating a new PR."
-      #       gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
-      #     else
-      #       echo "PR already exists. Updating the PR title and body."
-      #       # Extract the PR number using awk
-      #       prNumber=$(echo "$prExists" | awk '{print $1}')
-      #       echo "Existing PR number: $prNumber"
-      #       echo "Temporarily closing the PR due to a bug in gh pr edit - https://github.com/cli/cli/issues/8358"
-      #       gh pr close $prNumber
-      #       # gh pr edit $prNumber --title "$commitMsg" --body "$prBody"
-      #       gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
-      #     fi
+          if [ -z "$prExists" ]; then
+            echo "PR does not exist. Creating a new PR."
+            gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
+          else
+            echo "PR already exists. Updating the PR title and body."
+            # Extract the PR number using awk
+            prNumber=$(echo "$prExists" | awk '{print $1}')
+            echo "Existing PR number: $prNumber"
+            echo "Temporarily closing the PR due to a bug in gh pr edit - https://github.com/cli/cli/issues/8358"
+            gh pr close $prNumber
+            # gh pr edit $prNumber --title "$commitMsg" --body "$prBody"
+            gh pr create --base ${{ env.DESTINATION_BRANCH }} --head $cdBranchName --title "$commitMsg" --body "$prBody"
+          fi
