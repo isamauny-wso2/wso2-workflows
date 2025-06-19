@@ -120,28 +120,32 @@ jobs:
 
           set +e
           for policy_path in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
-            policy_name=$(basename $(dirname "$policy_path"))   # e.g., addHeader
-            version=$(basename "$policy_path")                  # e.g., v1
-            zip_name="${policy_name}_${version}.zip"
+            policy_name=$(basename "$(dirname "$policy_path")")  # e.g., addQueryParam
+            version=$(basename "$policy_path")                   # e.g., v1
 
-            echo "Creating zip: $zip_name from $policy_path"
+            echo "Importing $policy_name version $version"
 
-            # Create the zip with only the contents of the version folder, not the folder itself
-            (cd "$policy_path" && zip -r "../../$zip_name" .)
+            # Create a temporary directory with expected structure
+            temp_dir=$(mktemp -d)
+            policy_dir="$temp_dir/$policy_name"
+            mkdir -p "$policy_dir"
+
+            cp "$policy_path"/* "$policy_dir/"
 
             pwd
             ls
             tree
 
-            # Import the policy using apictl
-            echo "Importing $policy_name version $version"
-            output=$(apictl import policy api --file "$apiRepoName/src/$zip_name" -e "$APICTL_ENV" -k 2>&1)
+            # Run apictl with the expected folder structure
+            output=$(apictl import policy api -f "$policy_dir" -e "$APICTL_ENV" -k 2>&1)
             exit_code=$?
 
             echo "$output"
-            rm "$zip_name"
 
-            # Handle error
+            # Cleanup
+            rm -rf "$temp_dir"
+
+            # Handle errors
             if [[ $exit_code -ne 0 ]]; then
               if echo "$output" | grep -q "The API Policy already exists"; then
                 echo "Policy $policy_name ($version) already exists. Skipping."
@@ -151,7 +155,6 @@ jobs:
               fi
             fi
           done
-
 
           # for dir in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
           #   echo "Importing policy from $dir"
