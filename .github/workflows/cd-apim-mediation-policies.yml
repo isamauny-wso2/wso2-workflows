@@ -118,24 +118,23 @@ jobs:
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
+          set +e
           for dir in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
             echo "Importing policy from $dir"
-          done
-
-          set +e
-          output=$(apictl import policy api -f $apiRepoName/src/addHeader -e $APICTL_ENV -k 2>&1)
-          exit_code=$?
-          echo "$output"
-          
-          if [[ $exit_code -ne 0 ]]; then
-            if echo "$output" | grep -q "The API Policy already exists"; then
-              echo "The Policy already exists, skipping import."
-              exit 0
-            else
-              echo "Import failed for another reason."
-              exit $exit_code
+            output=$(apictl import policy api -f $dir -e $APICTL_ENV -k 2>&1)
+            exit_code=$?
+            echo "$output"
+            
+            if [[ $exit_code -ne 0 ]]; then
+              if echo "$output" | grep -q "The API Policy already exists"; then
+                echo "The Policy already exists, skipping import."
+                exit 0
+              else
+                echo "Import failed for another reason."
+                exit $exit_code
+              fi
             fi
-          fi
+          done
 
       - name: Promote Policy to ${{ env.DESTINATION_BRANCH }} branch
         if: ${{ inputs.createPromotionPr }}
