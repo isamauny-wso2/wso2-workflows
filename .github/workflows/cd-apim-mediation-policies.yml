@@ -119,22 +119,52 @@ jobs:
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
           set +e
-          for dir in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
-            echo "Importing policy from $dir"
-            output=$(apictl import policy api -f $dir -e $APICTL_ENV -k 2>&1)
+          for policy_path in $(find src -mindepth 2 -maxdepth 2 -type d); do
+            policy_name=$(basename $(dirname "$policy_path"))   # e.g., addHeader
+            version=$(basename "$policy_path")                  # e.g., v1
+            zip_name="${policy_name}_${version}.zip"
+
+            echo "Creating zip: $zip_name from $policy_path"
+
+            # Create the zip with only the contents of the version folder, not the folder itself
+            (cd "$policy_path" && zip -r "../../$zip_name" .)
+
+            # Import the policy using apictl
+            echo "Importing $policy_name version $version"
+            output=$(apictl import policy api --file "$zip_name" -e "$APICTL_ENV" -k 2>&1)
             exit_code=$?
+
             echo "$output"
-            
+            rm "$zip_name"
+
+            # Handle error
             if [[ $exit_code -ne 0 ]]; then
               if echo "$output" | grep -q "The API Policy already exists"; then
-                echo "The Policy already exists, skipping import."
-                exit 0
+                echo "Policy $policy_name ($version) already exists. Skipping."
               else
-                echo "Import failed for another reason."
+                echo "Import failed for $policy_name ($version)"
                 exit $exit_code
               fi
             fi
           done
+
+
+          # for dir in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
+          #   echo "Importing policy from $dir"
+          #   output=$(apictl import policy api -f $dir -e $APICTL_ENV -k 2>&1)
+          #   exit_code=$?
+          #   echo "$output"
+            
+          #   if [[ $exit_code -ne 0 ]]; then
+          #     if echo "$output" | grep -q "The API Policy already exists"; then
+          #       echo "The Policy already exists, skipping import."
+          #       exit 0
+          #     else
+          #       echo "Import failed for another reason."
+          #       exit $exit_code
+          #     fi
+          #   fi
+          # done
 
       - name: Promote Policy to ${{ env.DESTINATION_BRANCH }} branch
         if: ${{ inputs.createPromotionPr }}
