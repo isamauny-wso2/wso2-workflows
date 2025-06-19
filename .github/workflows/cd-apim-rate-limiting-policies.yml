@@ -115,38 +115,9 @@ jobs:
           export PATH=$PATH:$APICTL_HOME
           echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
-          set +e
-          for policy_path in $(find $apiRepoName/src -mindepth 2 -maxdepth 2 -type d); do
-            policy_name=$(basename "$(dirname "$policy_path")")  # e.g., addQueryParam
-            version=$(basename "$policy_path")                   # e.g., v1
-
-            echo "Importing $policy_name version $version"
-
-            # Create a temporary directory with expected structure
-            temp_dir=$(mktemp -d)
-            policy_dir="$temp_dir/$policy_name"
-            mkdir -p "$policy_dir"
-
-            cp "$policy_path"/* "$policy_dir/"
-
-            # Run apictl with the expected folder structure
-            output=$(apictl import policy rate-limiting -f "$policy" -e "$APICTL_ENV" --update)
-            exit_code=$?
-
-            echo "$output"
-
-            # Cleanup
-            rm -rf "$temp_dir"
-
-            # Handle errors
-            if [[ $exit_code -ne 0 ]]; then
-              if echo "$output" | grep -q "The API Policy already exists"; then
-                echo "Policy $policy_name ($version) already exists. Skipping."
-              else
-                echo "Import failed for $policy_name ($version)"
-                exit $exit_code
-              fi
-            fi
+          for policy in $apiRepoName/src/*.yaml; do
+            echo "Importing rate-limiting policy: $policy"
+            apictl import policy rate-limiting -f "$policy" -e "$APICTL_ENV" --update
           done
 
       - name: Promote Policy to ${{ env.DESTINATION_BRANCH }} branch
