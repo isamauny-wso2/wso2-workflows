@@ -134,7 +134,7 @@ jobs:
               mkdir -p "$(dirname "$releaseFilePath")"
           cat <<EOF > "$releaseFilePath"
           {
-            "apiRepository": "${{ github.repository }}",
+            "artifactRepository": "${{ github.repository }}",
             "releaseVersion": "$newVersion",
             "artifacts": [
               "$CURRENT_REPO_NAME.zip"
