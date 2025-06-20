@@ -130,18 +130,18 @@ jobs:
               git checkout -b "$branch_name"
 
               mkdir -p "$(dirname "$releaseFilePath")"
-            cat <<EOF > "$releaseFilePath"
-            {
-              "apiRepository": "${{ github.repository }}",
-              "releaseVersion": "$newVersion",
-              "artifacts": ["$CURRENT_REPO_NAME.zip"],
-              "pullRequest": {
-                "url": "$prUrl",
-                "title": "$prTitle",
-                "mergedAt": "$prMergedAt"
-              }
+          cat <<EOF > "$releaseFilePath"
+          {
+            "apiRepository": "${{ github.repository }}",
+            "releaseVersion": "$newVersion",
+            "artifacts": ["$CURRENT_REPO_NAME.zip"],
+            "pullRequest": {
+              "url": "$prUrl",
+              "title": "$prTitle",
+              "mergedAt": "$prMergedAt"
             }
-            EOF
+          }
+          EOF
 
               git add "$releaseFilePath"
               git commit -m "[CD] Init release.json for $CURRENT_REPO_NAME/$changed_apim_version"
