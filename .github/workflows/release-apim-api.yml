@@ -106,27 +106,24 @@ jobs:
 
             if [ -f "$releaseFilePath" ]; then
               echo "Found release file: $releaseFilePath"
+              newVersion=${{ steps.release.outputs.NEW_VERSION }}
+              prUrl="${{ steps.pr.outputs.pr_url }}"
+              prTitle="${{ steps.pr.outputs.pr_title }}"
+              prMergedAt="${{ steps.pr.outputs.pr_merged_at }}"
+      
+              # Read the JSON file and update the details
+              updatedReleaseFile=$(jq '
+                  .releaseVersion = "'"$newVersion"'" |
+                  .pullRequest.url = "'"$prUrl"'" |
+                  .pullRequest.title = "'"$prTitle"'" |
+                  .pullRequest.mergedAt = "'"$prMergedAt"'"
+                ' "$releaseFile")
+    
+              echo "$updatedReleaseFile" > "$releaseFile"
+              git add "$releaseFilePath"
+              git commit -m "[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changedApiVersionsStr] [$newVersion]"
+              git push origin ${{env.GIT_CD_BRANCH}}
             else
               echo "Release file not found: $releaseFilePath"
             fi
-
-            newVersion=${{ steps.release.outputs.NEW_VERSION }}
-            prUrl="${{ steps.pr.outputs.pr_url }}"
-            prTitle="${{ steps.pr.outputs.pr_title }}"
-            prMergedAt="${{ steps.pr.outputs.pr_merged_at }}"
-    
-            # Read the JSON file and update the details
-            updatedReleaseFile=$(jq '
-                .releaseVersion = "'"$newVersion"'" |
-                .pullRequest.url = "'"$prUrl"'" |
-                .pullRequest.title = "'"$prTitle"'" |
-                .pullRequest.mergedAt = "'"$prMergedAt"'"
-              ' "$releaseFile")
-  
-            echo "$updatedReleaseFile" > "$releaseFile"
-  
-            git add "$releaseFilePath"
           done
-
-          git commit -m "[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changedApiVersionsStr] [$newVersion]"
-          git push origin ${{env.GIT_CD_BRANCH}}
