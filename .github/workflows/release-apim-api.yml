@@ -89,7 +89,7 @@ jobs:
           # Split the string back into an array
           IFS=',' read -ra changed_apim_versions <<< "$changedApiVersionsStr"
 
-          echo "changed_apim_versions: ${changed_apim_versions[@]}"
+          echo "Changed API versions: ${changed_apim_versions[@]}"
           
           mkdir apim-cd
           cd apim-cd
@@ -97,23 +97,30 @@ jobs:
           git config --global user.email "${{ env.GIT_BOT_EMAIL }}"
           git config --global user.name "${{env.GIT_BOT_USERNAME}}"
           git clone https://${{env.GIT_BOT_USERNAME}}:${{ env.GIT_BOT_PAT }}@github.com/${{env.GIT_ORG}}/${{env.GIT_CICD_REPO}} --branch ${{env.GIT_CD_BRANCH}} --single-branch
-          
           cd ${{env.GIT_CICD_REPO}}
 
           for changed_apim_version in "${changed_apim_versions[@]}"; do
-
-            echo "changed_apim_version: $changed_apim_version"
+            echo "Processing version: $changed_apim_version"
             releaseFilePath="apim/apis/$CURRENT_REPO_NAME/$changed_apim_version/release.json"
             releaseFile=$releaseFilePath
-  
-            newVersion=${{steps.release.outputs.NEW_VERSION}}
-  
+
+            if [ -f "$releaseFilePath" ]; then
+              echo "Found release file: $releaseFilePath"
+            else
+              echo "Release file not found: $releaseFilePath"
+            fi
+
+            newVersion=${{ steps.release.outputs.NEW_VERSION }}
+            prUrl="${{ steps.pr.outputs.pr_url }}"
+            prTitle="${{ steps.pr.outputs.pr_title }}"
+            prMergedAt="${{ steps.pr.outputs.pr_merged_at }}"
+    
             # Read the JSON file and update the details
             updatedReleaseFile=$(jq '
                 .releaseVersion = "'"$newVersion"'" |
-                .pullRequest.url = "'"${{steps.pr.outputs.pr_url}}"'" |
-                .pullRequest.title = "'"${{steps.pr.outputs.pr_title}}"'" |
-                .pullRequest.mergedAt = "'"${{steps.pr.outputs.pr_merged_at}}"'"
+                .pullRequest.url = "'"$prUrl"'" |
+                .pullRequest.title = "'"$prTitle"'" |
+                .pullRequest.mergedAt = "'"$prMergedAt"'"
               ' "$releaseFile")
   
             echo "$updatedReleaseFile" > "$releaseFile"
