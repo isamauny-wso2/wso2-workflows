@@ -129,6 +129,7 @@ jobs:
 
               branch_name="cd-dev-$CURRENT_REPO_NAME-$changed_apim_version"
               git checkout -b "$branch_name"
+              git pull
 
               mkdir -p "$(dirname "$releaseFilePath")"
           cat <<EOF > "$releaseFilePath"
