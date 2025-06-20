@@ -122,7 +122,7 @@ jobs:
     
               echo "$updatedReleaseFile" > "$releaseFile"
               git add "$releaseFilePath"
-              git commit -m "[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changedApiVersionsStr] [$newVersion]"
+              git commit -m "[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changed_apim_version] [$newVersion]"
               git push origin ${{env.GIT_CD_BRANCH}}
             else
               echo "Release file not found: $releaseFilePath"
@@ -147,8 +147,8 @@ jobs:
           }
           EOF
 
-              commitMsg="[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changedApiVersionsStr] [$newVersion]"
-              prBody="A new API and version have been added to the CI/CD pipeline: $CURRENT_REPO_NAME-$changedApiVersionsStr (Release: $newVersion)
+              commitMsg="[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changed_apim_version] [$newVersion]"
+              prBody="A new API and version have been added to the CI/CD pipeline: $CURRENT_REPO_NAME-$changed_apim_version (Release: $newVersion)
               - This PR was automatically generated to register the new API version in the centralized CD configuration.
               - Merging this PR will approve the addition and trigger deployment to the Dev environment.
               Please review and take action accordingly.
