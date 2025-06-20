@@ -156,7 +156,7 @@ jobs:
 
               git add "$releaseFilePath"
               git commit -m "$commitMsg"
-              git push origin "$branch_name"
+              git push -f origin "$branch_name"
 
               echo "$GIT_BOT_PAT" | gh auth login --with-token
               prExists=$(gh pr list --base ${{env.GIT_CD_BRANCH}} --head $branch_name --state OPEN)
