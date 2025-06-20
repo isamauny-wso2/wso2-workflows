@@ -134,7 +134,9 @@ jobs:
           {
             "apiRepository": "${{ github.repository }}",
             "releaseVersion": "$newVersion",
-            "artifacts": ["$CURRENT_REPO_NAME.zip"],
+            "artifacts": [
+              "$CURRENT_REPO_NAME.zip"
+            ],
             "pullRequest": {
               "url": "$prUrl",
               "title": "$prTitle",
@@ -143,8 +145,35 @@ jobs:
           }
           EOF
 
+              commitMsg="[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changedApiVersionsStr] [$newVersion]"
+              prBody="A new API and version have been added to the CI/CD pipeline: **$apiName-$apiVersion** (Release: $releaseVersion)
+
+              - This PR was automatically generated to register the new API version in the centralized CD configuration.
+              - Merging this PR will approve the addition and **trigger deployment to the \`${{ env.DESTINATION_ENV }}\` environment**.
+
+              Please review and take action accordingly.
+              "
+
               git add "$releaseFilePath"
-              git commit -m "[CD] Init release.json for $CURRENT_REPO_NAME/$changed_apim_version"
+              git commit -m "$commitMsg"
               git push origin "$branch_name"
+
+              echo "$GIT_BOT_PAT" | gh auth login --with-token
+              prExists=$(gh pr list --base ${{env.GIT_CD_BRANCH}} --head $branch_name --state OPEN)
+              echo "PR exists: $prExists"
+
+              if [ -z "$prExists" ]; then
+                echo "PR does not exist. Creating a new PR."
+                gh pr create --base ${{env.GIT_CD_BRANCH}} --head $branch_name --title "$commitMsg" --body "$prBody"
+              else
+                echo "PR already exists. Updating the PR title and body."
+                # Extract the PR number using awk
+                prNumber=$(echo "$prExists" | awk '{print $1}')
+                echo "Existing PR number: $prNumber"
+                echo "Temporarily closing the PR due to a bug in gh pr edit - https://github.com/cli/cli/issues/8358"
+                gh pr close $prNumber
+                # gh pr edit $prNumber --title "$commitMsg" --body "$prBody"
+                gh pr create --base ${{env.GIT_CD_BRANCH}} --head $branch_name --title "$commitMsg" --body "$prBody"
+              fi
             fi
           done
