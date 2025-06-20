@@ -148,11 +148,9 @@ jobs:
           EOF
 
               commitMsg="[CD] [Dev] [APIM-API] [$CURRENT_REPO_NAME-$changedApiVersionsStr] [$newVersion]"
-              prBody="A new API and version have been added to the CI/CD pipeline: $apiName-$apiVersion (Release: $releaseVersion)
-
+              prBody="A new API and version have been added to the CI/CD pipeline: $CURRENT_REPO_NAME-$changedApiVersionsStr (Release: $newVersion)
               - This PR was automatically generated to register the new API version in the centralized CD configuration.
               - Merging this PR will approve the addition and **trigger deployment to the Dev environment.
-
               Please review and take action accordingly.
               "
 
