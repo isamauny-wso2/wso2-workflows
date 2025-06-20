@@ -85,24 +85,83 @@ jobs:
           git config --global user.email "${{ env.GIT_BOT_EMAIL }}"
           git config --global user.name "${{env.GIT_BOT_USERNAME}}"
           git clone https://${{env.GIT_BOT_USERNAME}}:${{ env.GIT_BOT_PAT }}@github.com/${{env.GIT_ORG}}/${{env.GIT_CICD_REPO}} --branch ${{env.GIT_CD_BRANCH}} --single-branch
-          
           cd ${{env.GIT_CICD_REPO}}
 
           releaseFilePath="apim/policies/${{env.POLICY_TYPE}}/$CURRENT_REPO_NAME/release.json"
           releaseFile=$releaseFilePath
 
-          newVersion=${{steps.release.outputs.NEW_VERSION}}
+          newVersion=${{ steps.release.outputs.NEW_VERSION }}
+          prUrl="${{ steps.pr.outputs.pr_url }}"
+          prTitle="${{ steps.pr.outputs.pr_title }}"
+          prMergedAt="${{ steps.pr.outputs.pr_merged_at }}"
 
-          # Read the JSON file and update the details
-          updatedReleaseFile=$(jq '
-              .releaseVersion = "'"$newVersion"'" |
-              .pullRequest.url = "'"${{steps.pr.outputs.pr_url}}"'" |
-              .pullRequest.title = "'"${{steps.pr.outputs.pr_title}}"'" |
-              .pullRequest.mergedAt = "'"${{steps.pr.outputs.pr_merged_at}}"'"
-            ' "$releaseFile")
+          if [ -f "$releaseFilePath" ]; then
+            echo "Found release file: $releaseFilePath"
 
-          echo "$updatedReleaseFile" > "$releaseFile"
+            # Read the JSON file and update the details
+            updatedReleaseFile=$(jq '
+                .releaseVersion = "'"$newVersion"'" |
+                .pullRequest.url = "'"$prUrl"'" |
+                .pullRequest.title = "'"$prTitle"'" |
+                .pullRequest.mergedAt = "'"$prMergedAt"'"
+              ' "$releaseFile")
 
-          git add "$releaseFilePath"
-          git commit -m "[CD] [Dev] [APIM-Policy] [$CURRENT_REPO_NAME] [$newVersion]"
-          git push origin ${{env.GIT_CD_BRANCH}}
+            echo "$updatedReleaseFile" > "$releaseFile"
+
+            git add "$releaseFilePath"
+            git commit -m "[CD] [Dev] [APIM-Policy] [$CURRENT_REPO_NAME] [$newVersion]"
+            git push origin ${{env.GIT_CD_BRANCH}}
+          else
+             echo "Release file not found: $releaseFilePath"
+
+              branch_name="cd-dev-$CURRENT_REPO_NAME"
+              git checkout -b "$branch_name"
+              git pull
+
+              mkdir -p "$(dirname "$releaseFilePath")"
+          cat <<EOF > "$releaseFilePath"
+          {
+            "artifactRepository": "${{ github.repository }}",
+            "releaseVersion": "$newVersion",
+            "artifacts": [
+              "$CURRENT_REPO_NAME.zip"
+            ],
+            "pullRequest": {
+              "url": "$prUrl",
+              "title": "$prTitle",
+              "mergedAt": "$prMergedAt"
+            }
+          }
+          EOF
+
+              commitMsg="[CD] [Dev] [APIM-Policy] [$CURRENT_REPO_NAME] [$newVersion]"
+              prBody="A new Policy repo has been added to the CI/CD pipeline: $CURRENT_REPO_NAME (Release: $newVersion)
+              - This PR was automatically generated to register the new Policy repo in the centralized CD configuration.
+              - Merging this PR will approve the addition and trigger deployment to the Dev environment.
+              Please review and take action accordingly.
+              "
+
+              git add "$releaseFilePath"
+              git commit -m "$commitMsg"
+              git push -f origin "$branch_name"
+
+              echo "$GIT_BOT_PAT" | gh auth login --with-token
+              prExists=$(gh pr list --base ${{env.GIT_CD_BRANCH}} --head $branch_name --state OPEN)
+              echo "PR exists: $prExists"
+
+              if [ -z "$prExists" ]; then
+                echo "PR does not exist. Creating a new PR."
+                gh pr create --base ${{env.GIT_CD_BRANCH}} --head $branch_name --title "$commitMsg" --body "$prBody"
+              else
+                echo "PR already exists. Updating the PR title and body."
+                # Extract the PR number using awk
+                prNumber=$(echo "$prExists" | awk '{print $1}')
+                echo "Existing PR number: $prNumber"
+                echo "Temporarily closing the PR due to a bug in gh pr edit - https://github.com/cli/cli/issues/8358"
+                gh pr close $prNumber
+                # gh pr edit $prNumber --title "$commitMsg" --body "$prBody"
+                gh pr create --base ${{env.GIT_CD_BRANCH}} --head $branch_name --title "$commitMsg" --body "$prBody"
+              fi
+          fi
+
+
