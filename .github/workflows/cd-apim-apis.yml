@@ -47,13 +47,11 @@ env:
   DESTINATION_ENV: ${{ inputs.destinationEnv }}
   PIPELINE_REPO: wso2-pipeline
   GITHUB_ORG: wso2-cicd
-  # this is not needed if the runner is properly setup with the apictl path
-  APICTL_HOME: /Users/rajkumarr/projects/wso2/cicd/apictl/apictl
 
 jobs:
   detectChangedApis:
     name: Detect changed apis
-    runs-on: [self-hosted, macOS, x64, wso2]
+    runs-on: [self-hosted]
     outputs:
       changedApis: ${{steps.findChangedApis.outputs.changedApis}}
     steps:
@@ -75,7 +73,7 @@ jobs:
 
   deployApisToApim:
     name: Deploy APIM API
-    runs-on: [self-hosted, macOS, x64, wso2]
+    runs-on: [self-hosted]
     needs: [ detectChangedApis ]
     strategy:
       max-parallel: 1
