@@ -44,38 +44,35 @@ jobs:
         id: release
         run: |
           echo "${{ env.GIT_BOT_PAT }}" | gh auth login --with-token
-          currentVersion=$(gh release view --repo $GITHUB_REPOSITORY --json tagName --jq '.tagName' || true)
 
-          if [ -z $currentVersion ]; then
-            newVersion=${{env.INITIAL_VERSION}}
+          # Get the current latest release tag
+          currentVersion=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName' || true)
+
+          if [ -z "$currentVersion" ]; then
+            newVersion="r1"
           else
-            major=$(echo $currentVersion | cut -d '.' -f 1 | tr -d 'v')
-            minor=$(echo $currentVersion | cut -d '.' -f 2)
-
-            ((++minor))
-            if [ $minor -gt ${{env.MAX_MINOR_VERSION}} ]; then
-                minor=0
-                ((++major))
-            fi
-
-            newVersion="v${major}.${minor}"
+            # Strip the 'r' prefix and increment the number
+            currentNumber=$(echo "$currentVersion" | sed 's/^r//')
+            newNumber=$((currentNumber + 1))
+            newVersion="r$newNumber"
           fi
-          
+
           echo "New version: $newVersion"
 
-          releaseNotes="Release notes for version $newVersion
+          release_notes="Release notes for version $newVersion
           - Pull Request Title: ${{steps.pr.outputs.pr_title}}
           - Pull Request: ${{steps.pr.outputs.pr_url}}
           - Pull Request Merged At: ${{steps.pr.outputs.pr_merged_at}}
           "
 
-          # Release the Packs
-          gh release create $newVersion --title "$CURRENT_REPO_NAME - $newVersion" --notes "$releaseNotes"
+          # Create the GitHub release
+          gh release create "$newVersion" --title "$CURRENT_REPO_NAME - $newVersion" --notes "$release_notes"
 
-          # Release the APIM Pack
-          gh release upload $newVersion  $CURRENT_REPO_NAME.zip
-          
-          echo "NEW_VERSION=$newVersion" >> $GITHUB_OUTPUT
+          # Upload the artifact
+          gh release upload "$newVersion" "$CURRENT_REPO_NAME.zip"
+
+          # Output the new version
+          echo "NEW_VERSION=$newVersion" >> "$GITHUB_OUTPUT"
 
       - name: Update Central CD Config
         run: |
