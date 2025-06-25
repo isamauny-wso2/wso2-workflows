@@ -46,9 +46,6 @@ env:
   SOURCE_ENV: ${{ inputs.sourceEnv }}
   DESTINATION_ENV: ${{ inputs.destinationEnv }}
   PIPELINE_REPO: wso2-pipeline
-  GITHUB_ORG: wso2-cicd
-  # this is not needed if the runner is properly setup with the apictl path
-  APICTL_HOME: /Users/rajkumarr/projects/wso2/cicd/apictl/apictl
 
 jobs:
   detectChangedPolicyRepos:
@@ -75,7 +72,7 @@ jobs:
 
   deployPoliciesToApim:
     name: Deploy APIM Policies
-    runs-on: [self-hosted, macOS, x64, wso2]
+    runs-on: [self-hosted]
     needs: [ detectChangedPolicyRepos ]
     strategy:
       max-parallel: 1
@@ -112,8 +109,8 @@ jobs:
           fi
 
           echo "Importing Policy ${{matrix.changedPolicyRepo}}"
-          export PATH=$PATH:$APICTL_HOME
-          echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
+          #export PATH=$PATH:$APICTL_HOME
+          #echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
 
           set +e
           for policy_path in $(find $artifactRepositoryName/src -mindepth 2 -maxdepth 2 -type d); do
@@ -155,7 +152,7 @@ jobs:
           releaseFilePath: "apim/policies/mediation/${{matrix.changedPolicyRepo}}/release.json"
           releaseVersion: ${{ steps.preparePolicyForDeployment.outputs[format('{0}_releaseVersion', matrix.changedPolicyRepo)] }}
         run: |
-          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{env.GITHUB_ORG}}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
+          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{ github.repository_owner }}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
           cd ${{env.PIPELINE_REPO}}
 
           releaseFileContent=$(cat $releaseFilePath)

@@ -4,7 +4,6 @@ on:
   workflow_call: {}
 
 env:
-  GIT_ORG: wso2-cicd
   GIT_CICD_REPO: wso2-pipeline
   GIT_CI_BRANCH: main
   GIT_CD_BRANCH: dev
@@ -96,7 +95,7 @@ jobs:
 
           git config --global user.email "${{ env.GIT_BOT_EMAIL }}"
           git config --global user.name "${{env.GIT_BOT_USERNAME}}"
-          git clone https://${{env.GIT_BOT_USERNAME}}:${{ env.GIT_BOT_PAT }}@github.com/${{env.GIT_ORG}}/${{env.GIT_CICD_REPO}} --branch ${{env.GIT_CD_BRANCH}} --single-branch
+          git clone https://${{env.GIT_BOT_USERNAME}}:${{ env.GIT_BOT_PAT }}@github.com/${{ github.repository_owner }}}}/${{env.GIT_CICD_REPO}} --branch ${{env.GIT_CD_BRANCH}} --single-branch
           cd ${{env.GIT_CICD_REPO}}
 
           for changed_apim_version in "${changed_apim_versions[@]}"; do
