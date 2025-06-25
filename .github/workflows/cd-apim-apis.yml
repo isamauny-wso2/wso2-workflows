@@ -46,7 +46,6 @@ env:
   SOURCE_ENV: ${{ inputs.sourceEnv }}
   DESTINATION_ENV: ${{ inputs.destinationEnv }}
   PIPELINE_REPO: wso2-pipeline
-  GITHUB_ORG: wso2-cicd
 
 jobs:
   detectChangedApis:
@@ -115,8 +114,8 @@ jobs:
           fi
 
           echo "Importing API $apiName-$apiVersion"
-          export PATH=$PATH:$APICTL_HOME
-          echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
+          #export PATH=$PATH:$APICTL_HOME
+          #echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
           apictl import api -f $artifactRepositoryName/apim/$apiVersion -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params $artifactRepositoryName/apim/$apiVersion/Conf
 
       - name: Promote API to ${{ env.DESTINATION_BRANCH }} branch
@@ -127,7 +126,7 @@ jobs:
           apiName: ${{ steps.prepareApiForDeployment.outputs[format('{0}_apiName', matrix.changedApi)] }}
           apiVersion: ${{ steps.prepareApiForDeployment.outputs[format('{0}_apiVersion', matrix.changedApi)] }}
         run: |
-          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{env.GITHUB_ORG}}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
+          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/${{ github.repository_owner }}/${{env.PIPELINE_REPO}} --branch ${{ env.SOURCE_BRANCH }} --single-branch
           cd ${{env.PIPELINE_REPO}}
 
           releaseFileContent=$(cat $releaseFilePath)
