@@ -68,7 +68,7 @@ jobs:
 
   deployPoliciesToApim:
     name: Deploy APIM Policies
-    runs-on: [self-hosted]
+    runs-on: self-hosted
     needs: [ detectChangedPolicyRepos ]
     strategy:
       max-parallel: 1
