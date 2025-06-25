@@ -154,6 +154,7 @@ jobs:
               git commit -m "$commitMsg"
               git push -f origin "$branch_name"
 
+              echo "Fetching PRs..."
               echo "$GIT_BOT_PAT" | gh auth login --with-token
               prExists=$(gh pr list --base ${{env.GIT_CD_BRANCH}} --head $branch_name --state OPEN)
               echo "PR exists: $prExists"

@@ -44,7 +44,7 @@ env:
 jobs:
   detectChangedApis:
     name: Detect changed apis
-    runs-on: [apim-cicd, self-hosted]
+    runs-on: self-hosted
     outputs:
       changedApis: ${{steps.findChangedApis.outputs.changedApis}}
     steps:

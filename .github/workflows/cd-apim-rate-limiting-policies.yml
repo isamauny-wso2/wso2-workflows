@@ -46,7 +46,7 @@ env:
 jobs:
   detectChangedPolicyRepos:
     name: Detect changed policies
-    runs-on: [self-hosted, macOS, x64, wso2]
+    runs-on: self-hosted
     outputs:
       changedPolicyRepos: ${{steps.findChangedPolicyRepos.outputs.changedPolicyRepos}}
     steps:
