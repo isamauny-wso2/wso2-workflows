@@ -29,10 +29,6 @@ on:
         required: true
       ghBotEmail:
         required: true
-      apimAdminUsername:
-        required: true
-      apimAdminPassword:
-        required: true
           
 env:
   GIT_BOT_USERNAME: ${{ secrets.ghBotUsername }}

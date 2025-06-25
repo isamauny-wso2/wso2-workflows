@@ -35,8 +35,6 @@ env:
   GIT_BOT_PAT: ${{ secrets.ghBotPat }}
   GIT_BOT_EMAIL: ${{ secrets.ghBotEmail }}
   APICTL_ENV: ${{ inputs.apiCtlEnv }}
-  #APIM_ADMIN_USERNAME: ${{ secrets.apimAdminUsername }}
-  #APIM_ADMIN_PASSWORD: ${{ secrets.apimAdminPassword }}
   SOURCE_BRANCH: ${{ inputs.sourceBranch }}
   DESTINATION_BRANCH: ${{ inputs.destinationBranch }}
   SOURCE_ENV: ${{ inputs.sourceEnv }}
