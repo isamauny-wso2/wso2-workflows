@@ -29,18 +29,14 @@ on:
         required: true
       ghBotEmail:
         required: true
-      apimAdminUsername:
-        required: true
-      apimAdminPassword:
-        required: true
           
 env:
   GIT_BOT_USERNAME: ${{ secrets.ghBotUsername }}
   GIT_BOT_PAT: ${{ secrets.ghBotPat }}
   GIT_BOT_EMAIL: ${{ secrets.ghBotEmail }}
   APICTL_ENV: ${{ inputs.apiCtlEnv }}
-  APIM_ADMIN_USERNAME: ${{ secrets.apimAdminUsername }}
-  APIM_ADMIN_PASSWORD: ${{ secrets.apimAdminPassword }}
+  #APIM_ADMIN_USERNAME: ${{ secrets.apimAdminUsername }}
+  #APIM_ADMIN_PASSWORD: ${{ secrets.apimAdminPassword }}
   SOURCE_BRANCH: ${{ inputs.sourceBranch }}
   DESTINATION_BRANCH: ${{ inputs.destinationBranch }}
   SOURCE_ENV: ${{ inputs.sourceEnv }}
@@ -50,7 +46,7 @@ env:
 jobs:
   detectChangedApis:
     name: Detect changed apis
-    runs-on: [apim-cicd]
+    runs-on: [apim-cicd, self-hosted]
     outputs:
       changedApis: ${{steps.findChangedApis.outputs.changedApis}}
     steps:
@@ -72,7 +68,7 @@ jobs:
 
   deployApisToApim:
     name: Deploy APIM API
-    runs-on: [apim-cicd]
+    runs-on: [apim-cicd, self-hosted]
     needs: [ detectChangedApis ]
     strategy:
       max-parallel: 1
