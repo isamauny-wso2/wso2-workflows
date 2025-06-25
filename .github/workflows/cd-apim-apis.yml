@@ -50,7 +50,7 @@ env:
 jobs:
   detectChangedApis:
     name: Detect changed apis
-    runs-on: [self-hosted]
+    runs-on: [apim-cicd]
     outputs:
       changedApis: ${{steps.findChangedApis.outputs.changedApis}}
     steps:
@@ -72,7 +72,7 @@ jobs:
 
   deployApisToApim:
     name: Deploy APIM API
-    runs-on: [self-hosted]
+    runs-on: [apim-cicd]
     needs: [ detectChangedApis ]
     strategy:
       max-parallel: 1
