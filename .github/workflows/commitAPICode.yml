@@ -16,7 +16,7 @@ on:
 jobs:
   say-hello:
     name: sayHello
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Echo Inputs
         run: |
