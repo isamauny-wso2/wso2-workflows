@@ -1,13 +1,15 @@
 name: commitDevCode
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      api-name:
+      apiName:
         type: string
+        description: API Name
         required: true
-      api-version:
+      apiVersion:
         type: string
+        description: API Version
         required: true
         
 
@@ -18,5 +20,5 @@ jobs:
     steps:
       - name: Echo Inputs
         run: |
-          echo "API Name: ${{ inputs.api-name }}"
-          echo "API Version: ${{ inputs.api-version }}"
+          echo "API Name: ${{ inputs.apiName }}"
+          echo "API Version: ${{ inputs.apiVersion }}"
