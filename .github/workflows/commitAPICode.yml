@@ -1,5 +1,3 @@
-name: commitDevCode
-
 on:
   workflow_dispatch:
     inputs:
