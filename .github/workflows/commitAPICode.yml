@@ -16,5 +16,7 @@ jobs:
     name: sayHello
     runs-on: self-hosted
     steps:
-      - name: Say Hello
-        run: echo "Hello"
+      - name: Echo Inputs
+        run: |
+          echo "API Name: ${{ inputs.api-name }}"
+          echo "API Version: ${{ inputs.api-version }}"
