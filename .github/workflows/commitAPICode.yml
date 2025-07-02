@@ -1,0 +1,20 @@
+name: commitDevCode
+
+on:
+  workflow_call:
+    inputs:
+      api-name:
+        type: string
+        required: true
+      api-version:
+        type: string
+        required: true
+        
+
+jobs:
+  say-hello:
+    name: sayHello
+    runs-on: self-hosted
+    steps:
+      - name: Say Hello
+        run: echo "Hello"
