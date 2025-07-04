@@ -18,6 +18,8 @@ on:
 env:
   APIM_ENVIRONMENT: dev
   WORK_DIR: /tmp/workflow-${{ github.run_id }}-${{ github.run_number }}
+  BOT_USER: isamauny-wso2
+  BOT_EMAIL: isabelle+github@wso2.com
 
 jobs:
   commit-new-version:
