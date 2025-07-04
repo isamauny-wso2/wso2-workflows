@@ -41,7 +41,7 @@ jobs:
         id: export-api
         run: |
           # Export API as ZIP using apictl (assuming apictl is pre-configured)
-          apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} --format zip
+          apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} 
           
           # Find the exported ZIP file
           ZIP_FILE=$(ls *.zip | head -1)
@@ -51,7 +51,7 @@ jobs:
       - name: Commit API ZIP to Repository
         run: |
           # Clone the target repository
-          git clone https://github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git target-repo
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git target-repo
           cd target-repo
           
           # Create directory structure
@@ -69,4 +69,4 @@ jobs:
           git commit -m "Add API configuration for ${{ inputs.apiName }} version ${{ inputs.apiVersion }}"
           
           # Push changes
-          git push origin main
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
