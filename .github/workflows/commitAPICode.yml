@@ -11,12 +11,62 @@ on:
         required: true
         
 
+env:
+  APIM_ENVIRONMENT: dev
+
 jobs:
   say-hello:
     name: sayHello
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Echo Inputs
+      - name: Process API Parameters
+        id: process-params
         run: |
-          echo "API Name: ${{ inputs.apiName }}"
-          echo "API Version: ${{ inputs.apiVersion }}"
+          # Normalize API name (lowercase and trim)
+          API_NAME_NORMALIZED=$(echo "${{ inputs.apiName }}" | tr '[:upper:]' '[:lower:]' | xargs)
+          echo "api-name-normalized=$API_NAME_NORMALIZED" >> $GITHUB_OUTPUT
+          
+          # Extract major version (e.g., 1.0.0 -> v1)
+          API_VERSION_MAJOR=$(echo "${{ inputs.apiVersion }}" | cut -d'.' -f1)
+          API_VERSION_MAJOR="v$API_VERSION_MAJOR"
+          echo "api-version-major=$API_VERSION_MAJOR" >> $GITHUB_OUTPUT
+          
+          # Echo results
+          echo "Original API Name: ${{ inputs.apiName }}"
+          echo "Normalized API Name: $API_NAME_NORMALIZED"
+          echo "Original API Version: ${{ inputs.apiVersion }}"
+          echo "Major Version: $API_VERSION_MAJOR"
+
+      - name: Export API Data
+        id: export-api
+        run: |
+          # Export API as ZIP using apictl (assuming apictl is pre-configured)
+          apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} --format zip
+          
+          # Find the exported ZIP file
+          ZIP_FILE=$(ls *.zip | head -1)
+          echo "zip-file=$ZIP_FILE" >> $GITHUB_OUTPUT
+          echo "Exported ZIP file: $ZIP_FILE"
+
+      - name: Commit API ZIP to Repository
+        run: |
+          # Clone the target repository
+          git clone https://github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git target-repo
+          cd target-repo
+          
+          # Create directory structure
+          mkdir -p apim/${{ steps.process-params.outputs.api-version-major }}/Conf
+          
+          # Copy ZIP file to target location
+          cp ../${{ steps.export-api.outputs.zip-file }} apim/${{ steps.process-params.outputs.api-version-major }}/Conf/
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add and commit changes
+          git add .
+          git commit -m "Add API configuration for ${{ inputs.apiName }} version ${{ inputs.apiVersion }}"
+          
+          # Push changes
+          git push origin main
