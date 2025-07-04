@@ -44,7 +44,11 @@ jobs:
           apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} 
           
           # Find the exported ZIP file
-          ZIP_FILE=$(ls *.zip | head -1)
+          ZIP_FILE=$(ls /home/ghrunner/.wso2apictl/exported/apis/${{ env.APIM_ENVIRONMENT }}/*.zip 2>/dev/null | head -1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Error: No ZIP file found after API export"
+            exit 1
+          fi
           echo "zip-file=$ZIP_FILE" >> $GITHUB_OUTPUT
           echo "Exported ZIP file: $ZIP_FILE"
 
@@ -54,11 +58,13 @@ jobs:
           git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git target-repo
           cd target-repo
           
-          # Create directory structure
-          mkdir -p apim/${{ steps.process-params.outputs.api-version-major }}/Conf
+          # Create directory structure if it doesn't exist
+          if [ ! -d "apim/${{ steps.process-params.outputs.api-version-major }}/Conf" ]; then
+            mkdir -p apim/${{ steps.process-params.outputs.api-version-major }}/Conf
+          fi
           
           # Copy ZIP file to target location
-          cp ../${{ steps.export-api.outputs.zip-file }} apim/${{ steps.process-params.outputs.api-version-major }}/Conf/
+          cp ${{ steps.export-api.outputs.zip-file }} apim/${{ steps.process-params.outputs.api-version-major }}/Conf/
           
           # Configure git
           git config user.name "github-actions[bot]"
