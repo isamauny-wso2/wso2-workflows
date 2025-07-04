@@ -9,7 +9,11 @@ on:
         type: string
         description: API Version
         required: true
-        
+    secrets:
+      ghBotUsername:
+        required: true
+      ghBotEmail:
+        required: true    
 
 env:
   APIM_ENVIRONMENT: dev
@@ -77,8 +81,8 @@ jobs:
           cp ${{ steps.export-api.outputs.zip-file }} apim/${{ steps.process-params.outputs.api-version-major }}/Conf/
           
           # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name ${{ secrets.ghBotUsername }}
+          git config user.email ${{ secrets.ghBotEmail }}
           
           # Add and commit changes
           git add .
