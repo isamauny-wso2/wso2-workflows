@@ -15,8 +15,8 @@ env:
   APIM_ENVIRONMENT: dev
 
 jobs:
-  say-hello:
-    name: sayHello
+  commit-new-version:
+    name: commit new API version
     runs-on: self-hosted
     steps:
       - name: Process API Parameters
