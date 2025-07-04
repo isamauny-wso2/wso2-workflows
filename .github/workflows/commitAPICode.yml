@@ -65,7 +65,7 @@ jobs:
           cd ${{ env.WORK_DIR }}
           
           # Clone the target repository
-          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git target-repo
+          git clone https://${{ github.repository_owner }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git target-repo
           cd target-repo
           
           # Create directory structure if it doesn't exist
@@ -85,7 +85,7 @@ jobs:
           git commit -m "Add API configuration for ${{ inputs.apiName }} version ${{ inputs.apiVersion }}"
           
           # Push changes
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
+          git push https://${{ github.repository_owner }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
           
       - name: Cleanup working directory
         if: always()
