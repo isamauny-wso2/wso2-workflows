@@ -13,12 +13,19 @@ on:
 
 env:
   APIM_ENVIRONMENT: dev
+  WORK_DIR: /tmp/workflow-${{ github.run_id }}-${{ github.run_number }}
 
 jobs:
   commit-new-version:
     name: commit new API version
     runs-on: self-hosted
     steps:
+      - name: Create unique working directory
+        run: |
+          mkdir -p ${{ env.WORK_DIR }}
+          cd ${{ env.WORK_DIR }}
+          echo "Working in: $(pwd)"
+      
       - name: Process API Parameters
         id: process-params
         run: |
@@ -40,6 +47,7 @@ jobs:
       - name: Export API Data
         id: export-api
         run: |
+          
           # Export API as ZIP using apictl (assuming apictl is pre-configured)
           apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} 
           
@@ -54,6 +62,8 @@ jobs:
 
       - name: Commit API ZIP to Repository
         run: |
+          cd ${{ env.WORK_DIR }}
+          
           # Clone the target repository
           git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git target-repo
           cd target-repo
@@ -76,3 +86,9 @@ jobs:
           
           # Push changes
           git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
+          
+      - name: Cleanup working directory
+        if: always()
+        run: |
+          rm -rf ${{ env.WORK_DIR }}
+          echo "Cleaned up working directory: ${{ env.WORK_DIR }}"
