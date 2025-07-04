@@ -13,13 +13,13 @@ on:
       ghBotUsername:
         required: true
       ghBotEmail:
+        required: true  
+      ghBotPat:
         required: true    
 
 env:
   APIM_ENVIRONMENT: dev
   WORK_DIR: /tmp/workflow-${{ github.run_id }}-${{ github.run_number }}
-  BOT_USER: isamauny-wso2
-  BOT_EMAIL: isabelle+github@wso2.com
 
 jobs:
   commit-new-version:
@@ -91,7 +91,7 @@ jobs:
           git commit -m "Add API configuration for ${{ inputs.apiName }} version ${{ inputs.apiVersion }}"
           
           # Push changes
-          git push https://${{ github.repository_owner }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
+          git push https://${{ secrets.ghBotUsername }}:${{ secrets.ghBotPat }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
           
       - name: Cleanup working directory
         if: always()
