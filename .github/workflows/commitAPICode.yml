@@ -57,8 +57,8 @@ jobs:
           # Export API as ZIP using apictl (assuming apictl is pre-configured)
           apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} 
           
-          # Find the exported ZIP file
-          ZIP_FILE=$(ls /home/ghrunner/.wso2apictl/exported/apis/${{ env.APIM_ENVIRONMENT }}/*.zip 2>/dev/null | head -1)
+          # Find the specific exported ZIP file for this API and version
+          ZIP_FILE=$(find /home/ghrunner/.wso2apictl/exported/apis/${{ env.APIM_ENVIRONMENT }}/ -name "*${{ inputs.apiName }}*${{ inputs.apiVersion }}*.zip" -type f -newermt "5 minutes ago" | head -1)
           if [ -z "$ZIP_FILE" ]; then
             echo "Error: No ZIP file found after API export"
             exit 1
