@@ -39,16 +39,16 @@ jobs:
           API_NAME_NORMALIZED=$(echo "${{ inputs.apiName }}" | tr '[:upper:]' '[:lower:]' | xargs)
           echo "api-name-normalized=$API_NAME_NORMALIZED" >> $GITHUB_OUTPUT
           
-          # Extract major version (e.g., 1.0.0 -> v1)
-          API_VERSION_MAJOR=$(echo "${{ inputs.apiVersion }}" | cut -d'.' -f1)
-          API_VERSION_MAJOR="v$API_VERSION_MAJOR"
-          echo "api-version-major=$API_VERSION_MAJOR" >> $GITHUB_OUTPUT
+          # Extract major.minor version (e.g., 1.1.0 -> v1.1)
+          API_VERSION_MAJOR_MINOR=$(echo "${{ inputs.apiVersion }}" | cut -d'.' -f1,2)
+          API_VERSION_MAJOR_MINOR="v$API_VERSION_MAJOR_MINOR"
+          echo "api-version-major-minor=$API_VERSION_MAJOR_MINOR" >> $GITHUB_OUTPUT
           
           # Echo results
           echo "Original API Name: ${{ inputs.apiName }}"
           echo "Normalized API Name: $API_NAME_NORMALIZED"
           echo "Original API Version: ${{ inputs.apiVersion }}"
-          echo "Major Version: $API_VERSION_MAJOR"
+          echo "Major.Minor Version: $API_VERSION_MAJOR_MINOR"
 
       - name: Export API Data
         id: export-api
@@ -75,12 +75,14 @@ jobs:
           cd target-repo
           
           # Create directory structure if it doesn't exist
-          if [ ! -d "apim/${{ steps.process-params.outputs.api-version-major }}/Conf" ]; then
-            mkdir -p apim/${{ steps.process-params.outputs.api-version-major }}/Conf
+          if [ ! -d "apim/${{ steps.process-params.outputs.api-version-major-minor }}/Conf" ]; then
+            mkdir -p apim/${{ steps.process-params.outputs.api-version-major-minor }}/Conf
           fi
           
-          # Copy ZIP file to target location
-          cp ${{ steps.export-api.outputs.zip-file }} apim/${{ steps.process-params.outputs.api-version-major }}/Conf/
+          # Copy ZIP file to target location and rename to remove version
+          ZIP_FILENAME=$(basename "${{ steps.export-api.outputs.zip-file }}")
+          NEW_ZIP_FILENAME=$(echo "$ZIP_FILENAME" | sed 's/_[0-9]*\.[0-9]*\.[0-9]*\.zip$/.zip/' | sed 's/-[0-9]*\.[0-9]*\.[0-9]*\.zip$/.zip/')
+          cp "${{ steps.export-api.outputs.zip-file }}" "apim/${{ steps.process-params.outputs.api-version-major-minor }}/Conf/$NEW_ZIP_FILENAME"
           
           # Configure git
           git config user.name ${{ secrets.ghBotUsername }}
