@@ -19,7 +19,8 @@ on:
 
 env:
   APIM_ENVIRONMENT: dev
-  WORK_DIR: /tmp/ghrunner-exports
+  WORK_DIR: /tmp/workflow-${{ github.run_id }}-${{ github.run_number }}
+  APICTL_EXPORT_DIR: /tmp/ghrunner-exports
 
 jobs:
   commit-new-version:
@@ -53,12 +54,14 @@ jobs:
       - name: Export API Data
         id: export-api
         run: |
+          # Ensure apictl export directory exists
+          mkdir -p ${{ env.APICTL_EXPORT_DIR }}
           
           # Export API as ZIP using apictl (assuming apictl is pre-configured)
           apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} 
           
           # Find the specific exported ZIP file for this API and version
-          ZIP_FILE=$(find ${{ env.WORK_DIR }}/apis/${{ env.APIM_ENVIRONMENT }}/ -name "*${{ inputs.apiName }}*${{ inputs.apiVersion }}*.zip" -type f -newermt "5 minutes ago" | head -1)
+          ZIP_FILE=$(find ${{ env.APICTL_EXPORT_DIR }}/apis/${{ env.APIM_ENVIRONMENT }}/ -name "*${{ inputs.apiName }}*${{ inputs.apiVersion }}*.zip" -type f -newermt "5 minutes ago" | head -1)
           if [ -z "$ZIP_FILE" ]; then
             echo "Error: No ZIP file found after API export"
             exit 1
@@ -95,10 +98,17 @@ jobs:
           # Push changes
           git push https://${{ secrets.ghBotUsername }}:${{ secrets.ghBotPat }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
           
-      - name: Cleanup exported ZIP
+      - name: Cleanup
         if: always()
         run: |
+          # Clean up exported ZIP file
           if [ -f "${{ steps.export-api.outputs.zip-file }}" ]; then
             rm "${{ steps.export-api.outputs.zip-file }}"
             echo "Cleaned up exported ZIP file: ${{ steps.export-api.outputs.zip-file }}"
+          fi
+          
+          # Clean up workflow working directory (cloned repo)
+          if [ -d "${{ env.WORK_DIR }}" ]; then
+            rm -rf "${{ env.WORK_DIR }}"
+            echo "Cleaned up workflow directory: ${{ env.WORK_DIR }}"
           fi
