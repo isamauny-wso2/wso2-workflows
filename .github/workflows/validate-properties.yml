@@ -1,0 +1,86 @@
+name: Extract and Validate API Properties
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: 'Path to the ZIP file containing API properties'
+        required: true
+        type: string
+
+jobs:
+  validate-properties:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Extract and print custom properties
+        id: extract-properties
+        run: |
+          echo "Extracting properties from ZIP file"
+          echo "================================================="
+          
+          # Use the provided ZIP file path
+          ZIP_FILE="${{ inputs.zip_path }}"
+          
+          if [[ ! -f "$ZIP_FILE" ]]; then
+            echo "Error: ZIP file not found at: $ZIP_FILE"
+            exit 1
+          fi
+          
+          echo "Found ZIP file: $ZIP_FILE"
+          
+          # Extract ZIP file
+          TEMP_DIR=$(mktemp -d)
+          unzip -q "$ZIP_FILE" -d "$TEMP_DIR"
+          
+          # Find api.yaml
+          API_YAML=$(find "$TEMP_DIR" -name "api.yaml" -type f)
+          
+          if [[ -z "$API_YAML" ]]; then
+            echo "Error: api.yaml not found in ZIP file"
+            exit 1
+          fi
+          
+          echo "Found api.yaml: $API_YAML"
+          echo ""
+          
+          # Extract custom properties using Python script
+          echo "Extracting Custom Properties:"
+          echo "============================="
+          
+          # Use Python script to extract properties and display them
+          python3 extract_api_properties.py "$API_YAML" --format console --verbose
+          
+          # Generate JSON file for validation script
+          PROPERTIES_FILE="extracted-properties.json"
+          python3 extract_api_properties.py "$API_YAML" --format json --output "$PROPERTIES_FILE"
+          
+          # Generate GitHub Actions outputs for backward compatibility
+          python3 extract_api_properties.py "$API_YAML" --format github >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "Properties JSON file created: $PROPERTIES_FILE"
+          cat "$PROPERTIES_FILE"
+          
+          # Clean up
+          rm -rf "$TEMP_DIR"
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install PyYAML
+      
+      - name: Validate properties
+        run: |
+          python validate_properties.py --properties-file extracted-properties.json
+          
+    outputs:
+      domain: ${{ steps.extract-properties.outputs.domain }}
+      owner: ${{ steps.extract-properties.outputs.owner }}

@@ -1,0 +1,25 @@
+validation_rules:
+  Domain:
+    required: true
+    valid_values:
+      - "DevOps"
+      - "IoT"
+      - "Data"
+      - "Security"
+  
+  Owner:
+    required: true
+    valid_values:
+      - "BU1"
+      - "BU2"
+      - "BU3"
+      - "ECI"
+    
+  
+  # Add more properties as needed
+  # Environment:
+  #   required: false
+  #   valid_values:
+  #     - "DEV"
+  #     - "UAT"
+  #     - "PROD"
