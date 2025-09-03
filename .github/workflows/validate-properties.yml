@@ -7,6 +7,12 @@ on:
         description: 'Path to the ZIP file containing API properties'
         required: true
         type: string
+  workflow_call:
+    inputs:
+      zip_path:
+        description: 'Path to the ZIP file containing API properties'
+        required: true
+        type: string      
 
 jobs:
   validate-properties:
