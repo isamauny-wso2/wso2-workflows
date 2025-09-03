@@ -19,7 +19,7 @@ on:
 
 env:
   APIM_ENVIRONMENT: dev
-  WORK_DIR: /tmp/workflow-${{ github.run_id }}-${{ github.run_number }}
+  WORK_DIR: /tmp/ghrunner-exports
 
 jobs:
   commit-new-version:
@@ -58,7 +58,7 @@ jobs:
           apictl export api -n ${{ inputs.apiName }} -v ${{ inputs.apiVersion }} -e ${{ env.APIM_ENVIRONMENT }} 
           
           # Find the specific exported ZIP file for this API and version
-          ZIP_FILE=$(find /home/ghrunner/.wso2apictl/exported/apis/${{ env.APIM_ENVIRONMENT }}/ -name "*${{ inputs.apiName }}*${{ inputs.apiVersion }}*.zip" -type f -newermt "5 minutes ago" | head -1)
+          ZIP_FILE=$(find ${{ env.WORK_DIR }}/apis/${{ env.APIM_ENVIRONMENT }}/ -name "*${{ inputs.apiName }}*${{ inputs.apiVersion }}*.zip" -type f -newermt "5 minutes ago" | head -1)
           if [ -z "$ZIP_FILE" ]; then
             echo "Error: No ZIP file found after API export"
             exit 1
@@ -95,8 +95,10 @@ jobs:
           # Push changes
           git push https://${{ secrets.ghBotUsername }}:${{ secrets.ghBotPat }}@github.com/${{ github.repository_owner }}/${{ steps.process-params.outputs.api-name-normalized }}.git main
           
-      - name: Cleanup working directory
+      - name: Cleanup exported ZIP
         if: always()
         run: |
-          rm -rf ${{ env.WORK_DIR }}
-          echo "Cleaned up working directory: ${{ env.WORK_DIR }}"
+          if [ -f "${{ steps.export-api.outputs.zip-file }}" ]; then
+            rm "${{ steps.export-api.outputs.zip-file }}"
+            echo "Cleaned up exported ZIP file: ${{ steps.export-api.outputs.zip-file }}"
+          fi
