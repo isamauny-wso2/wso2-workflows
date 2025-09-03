@@ -3,7 +3,7 @@ name: Release WSO2 APIM API Repository
 on:
   workflow_call:
     inputs:
-      changed_zip_file:
+      changed_file:
         type: string
         required: true
 
