@@ -1,7 +1,11 @@
 name: Release WSO2 APIM API Repository
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      changed_zip_file:
+        type: string
+        required: true
 
 env:
   GIT_CICD_REPO: wso2-pipeline
