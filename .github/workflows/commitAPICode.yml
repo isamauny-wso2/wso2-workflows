@@ -78,14 +78,14 @@ jobs:
           cd target-repo
           
           # Create directory structure if it doesn't exist
-          if [ ! -d "apim/${{ steps.process-params.outputs.api-version-major-minor }}/Conf" ]; then
-            mkdir -p apim/${{ steps.process-params.outputs.api-version-major-minor }}/Conf
+          if [ ! -d "apim/${{ steps.process-params.outputs.api-version-major-minor }}/Artifact" ]; then
+            mkdir -p apim/${{ steps.process-params.outputs.api-version-major-minor }}/Artifact
           fi
           
           # Copy ZIP file to target location and rename to remove version
           ZIP_FILENAME=$(basename "${{ steps.export-api.outputs.zip-file }}")
           NEW_ZIP_FILENAME=$(echo "$ZIP_FILENAME" | sed 's/_[0-9]*\.[0-9]*\.[0-9]*\.zip$/.zip/' | sed 's/-[0-9]*\.[0-9]*\.[0-9]*\.zip$/.zip/')
-          cp "${{ steps.export-api.outputs.zip-file }}" "apim/${{ steps.process-params.outputs.api-version-major-minor }}/Conf/$NEW_ZIP_FILENAME"
+          cp "${{ steps.export-api.outputs.zip-file }}" "apim/${{ steps.process-params.outputs.api-version-major-minor }}/Artifact/$NEW_ZIP_FILENAME"
           
           # Configure git
           git config user.name ${{ secrets.ghBotUsername }}
