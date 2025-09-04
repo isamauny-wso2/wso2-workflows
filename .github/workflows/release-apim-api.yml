@@ -80,7 +80,7 @@ jobs:
           gh release create "$newVersion" --title "$CURRENT_REPO_NAME - $newVersion" --notes "$release_notes"
 
           # Upload the artifact
-          gh release upload "$newVersion" $changed_file
+          gh release upload "$newVersion" ${{ inputs.changed_file }}
 
           # Output the new version
           echo "NEW_VERSION=$newVersion" >> "$GITHUB_OUTPUT"
