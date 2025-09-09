@@ -141,7 +141,7 @@ jobs:
             "artifactRepository": "${{ github.repository }}",
             "releaseVersion": "$newVersion",
             "artifacts": [
-              "$CURRENT_REPO_NAME.zip"
+              "${{inputs.changed_file}}"
             ],
             "pullRequest": {
               "url": "$prUrl",
