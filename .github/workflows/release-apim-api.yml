@@ -130,6 +130,7 @@ jobs:
               git push origin ${{env.GIT_CD_BRANCH}}
             else
               echo "Release file not found: $releaseFilePath"
+              ZIP_FILENAME=$(basename "${{inputs.changed_file}}")
 
               branch_name="cd-dev-$CURRENT_REPO_NAME-$changed_apim_version"
               git checkout -b "$branch_name"
@@ -141,7 +142,7 @@ jobs:
             "artifactRepository": "${{ github.repository }}",
             "releaseVersion": "$newVersion",
             "artifacts": [
-              "${{inputs.changed_file}}"
+              "$ZIP_FILENAME"
             ],
             "pullRequest": {
               "url": "$prUrl",
