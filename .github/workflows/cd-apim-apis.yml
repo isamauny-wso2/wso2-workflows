@@ -40,6 +40,8 @@ env:
   SOURCE_ENV: ${{ inputs.sourceEnv }}
   DESTINATION_ENV: ${{ inputs.destinationEnv }}
   PIPELINE_REPO: wso2-pipeline
+  WORK_DIR: /tmp/workflow-${{ github.run_id }}-${{ github.run_number }}
+
 
 jobs:
   detectChangedApis:
@@ -48,6 +50,12 @@ jobs:
     outputs:
       changedApis: ${{steps.findChangedApis.outputs.changedApis}}
     steps:
+      - name: Create unique working directory
+        run: |
+          mkdir -p ${{ env.WORK_DIR }}
+          cd ${{ env.WORK_DIR }}
+          echo "Working in: $(pwd)"
+          
       - name: Checkout Pipeline Repo	
         uses: actions/checkout@v4
         with:
@@ -97,20 +105,27 @@ jobs:
           echo "${{matrix.changedApi}}_apiName=$apiName" >> $GITHUB_OUTPUT
           echo "${{matrix.changedApi}}_apiVersion=$apiVersion" >> $GITHUB_OUTPUT
 
+          # Create working directory for this API
+          mkdir -p ${{ env.WORK_DIR }}/$apiName-$apiVersion
+          cd ${{ env.WORK_DIR }}/$apiName-$apiVersion
+
           if [[ $(jq length <<<"$artifacts") -eq 0 ]]; then
           echo "artifacts is empty."
           else
             echo "$artifacts" | jq -c '.[]' | while read -r artifact; do
               artifact="${artifact//\"/}"
               gh release download $releaseVersion -R $artifactRepositoryPath -p $artifact
-              unzip $artifact
             done;
           fi
 
           echo "Importing API $apiName-$apiVersion"
           #export PATH=$PATH:$APICTL_HOME
           #echo $APIM_ADMIN_PASSWORD | apictl login $APICTL_ENV -u $APIM_ADMIN_USERNAME --password-stdin -k
-          apictl import api -f $artifactRepositoryName/apim/$apiVersion -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params $artifactRepositoryName/apim/$apiVersion/Conf
+          apictl import api -f ${{ env.WORK_DIR }}/$apiName-$apiVersion/*.zip -e $APICTL_ENV -k --update --rotate-revision --preserve-provider=false --params ${{ env.WORK_DIR }}/$apiName-$apiVersion/$artifactRepositoryName/apim/$apiVersion/Conf
+
+          # Cleanup downloaded artifacts
+          echo "Cleaning up downloaded artifacts"
+          rm -rf ${{ env.WORK_DIR }}/$apiName-$apiVersion
 
       - name: Promote API to ${{ env.DESTINATION_BRANCH }} branch
         if: ${{ inputs.createPromotionPr }}
