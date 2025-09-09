@@ -84,6 +84,23 @@ jobs:
       - name: Checkout Pipeline Repo	
         uses: actions/checkout@v4
 
+      - name: Checkout Artifact Repository
+        id: checkoutArtifactRepo
+        env:
+          releaseMetadataPath: "apim/apis/${{matrix.changedApi}}/release.json"
+        run: |
+          releaseMetadata=$(cat $releaseMetadataPath)
+          artifactRepositoryPath=$(echo "$releaseMetadata" | jq -r '."artifactRepository"')
+          artifactRepositoryName=$(echo "$artifactRepositoryPath" | cut -d '/' -f 2)
+          apiName=$(echo "${{matrix.changedApi}}" | cut -d '/' -f 1)
+          apiVersion=$(echo "${{matrix.changedApi}}" | cut -d '/' -f 2)
+          
+          # Create working directory structure
+          mkdir -p ${{ env.WORK_DIR }}/$apiName-$apiVersion
+          
+          echo "Checking out artifact repository: $artifactRepositoryPath"
+          git clone https://${{env.GIT_BOT_USERNAME}}:${{env.GIT_BOT_PAT}}@github.com/$artifactRepositoryPath.git ${{ env.WORK_DIR }}/$apiName-$apiVersion/$artifactRepositoryName
+
       - name: Fetch API Release Artifacts
         id: prepareApiForDeployment
         env:
@@ -105,8 +122,7 @@ jobs:
           echo "${{matrix.changedApi}}_apiName=$apiName" >> $GITHUB_OUTPUT
           echo "${{matrix.changedApi}}_apiVersion=$apiVersion" >> $GITHUB_OUTPUT
 
-          # Create working directory for this API
-          mkdir -p ${{ env.WORK_DIR }}/$apiName-$apiVersion
+          # Change to working directory for downloading artifacts
           cd ${{ env.WORK_DIR }}/$apiName-$apiVersion
 
           if [[ $(jq length <<<"$artifacts") -eq 0 ]]; then
