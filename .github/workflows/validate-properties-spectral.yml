@@ -1,0 +1,67 @@
+---
+name: Validate API Properties with Spectral
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: 'Path to the ZIP file containing API properties'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      zip_path:
+        description: 'Path to the ZIP file containing API properties'
+        required: true
+        type: string
+
+jobs:
+  validate-properties-spectral:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+
+      - name: Checkout wso2-rulesets repository
+        uses: actions/checkout@v4
+        with:
+          repository: '$GITHUB_REPOSITORY_OWNER/wso2-rulesets'
+          path: 'wso2-rulesets'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract API file from ZIP
+        id: extract-api
+        run: |
+          echo "Extracting API file from ZIP"
+          echo "============================"
+
+          # Use the provided ZIP file path
+          ZIP_FILE="${{ inputs.zip_path }}"
+
+          if [[ ! -f "$ZIP_FILE" ]]; then
+            echo "Error: ZIP file not found at: $ZIP_FILE"
+            exit 1
+          fi
+
+          echo "Found ZIP file: $ZIP_FILE"
+
+          # Extract ZIP file to workspace
+          unzip -q "$ZIP_FILE" -d ./extracted-api
+
+          # Find api.yaml
+          API_YAML=$(find ./extracted-api -name "api.yaml" -type f)
+
+          if [[ -z "$API_YAML" ]]; then
+            echo "Error: api.yaml not found in ZIP file"
+            exit 1
+          fi
+
+          echo "Found api.yaml: $API_YAML"
+          echo "api_yaml_path=$API_YAML" >> $GITHUB_OUTPUT
+
+      - name: Validate API properties with Spectral
+        uses: stoplightio/spectral-action@latest
+        with:
+          file_glob: '${{ steps.extract-api.outputs.api_yaml_path }}'
+          spectral_ruleset: 'wso2-rulesets/rules/propertiesValidation.yml'
