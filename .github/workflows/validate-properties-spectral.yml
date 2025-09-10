@@ -53,8 +53,16 @@ jobs:
           echo "Found api.yaml: $API_YAML"
           echo "api_yaml_path=$API_YAML" >> $GITHUB_OUTPUT
 
-      - name: Validate API properties with Spectral
-        uses: stoplightio/spectral-action@latest
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          file_glob: '${{ steps.extract-api.outputs.api_yaml_path }}'
-          spectral_ruleset: 'wso2-rulesets/rules/propertiesValidation.yml'
+          node-version: '18'
+
+      - name: Install Spectral CLI
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Validate API properties with Spectral
+        run: |
+          spectral lint '${{ steps.extract-api.outputs.api_yaml_path }}' \
+            --ruleset 'wso2-rulesets/rules/propertiesValidation.yml' \
+            --format github-actions
