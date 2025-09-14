@@ -1,0 +1,259 @@
+name: Validate API Compliance with apictl
+
+on:
+  workflow_call:
+    inputs:
+      zip_path:
+        description: 'Path to the ZIP file containing API'
+        required: true
+        type: string
+
+jobs:
+  validate-compliance-apictl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+
+      - name: Setup apictl
+        run: |
+          echo "Downloading and setting up apictl"
+          echo "================================="
+          
+          # Download apictl (adjust version as needed)
+          curl -L https://github.com/wso2/product-apim-tooling/releases/download/v4.3.0/apictl-4.3.0-linux-x64.tar.gz -o apictl.tar.gz
+          tar -xzf apictl.tar.gz
+          sudo mv apictl /usr/local/bin/
+          chmod +x /usr/local/bin/apictl
+          
+          # Verify installation
+          apictl version
+
+      - name: Configure apictl environment
+        run: |
+          echo "Configuring apictl environment"
+          echo "=============================="
+          
+          # Add dev environment (adjust URL as needed)
+          apictl add env dev --apim https://localhost:9443 --token https://localhost:8243/token
+          
+          # Set default environment
+          apictl set --environment dev
+
+      - name: Validate API compliance
+        id: validate-compliance
+        run: |
+          echo "Validating API compliance with apictl"
+          echo "====================================="
+
+          ZIP_FILE="${{ inputs.zip_path }}"
+
+          if [[ ! -f "$ZIP_FILE" ]]; then
+            echo "Error: ZIP file not found at: $ZIP_FILE"
+            exit 1
+          fi
+
+          echo "Found ZIP file: $ZIP_FILE"
+
+          # Run apictl import with dry-run and capture output
+          echo "Running apictl import in dry-run mode..."
+          RESULT_FILE="compliance_results.json"
+          
+          # Run the command and capture both stdout and stderr
+          if apictl import api -e dev -f "$ZIP_FILE" --dry-run --format json > "$RESULT_FILE" 2>&1; then
+            echo "apictl command completed successfully"
+          else
+            echo "apictl command completed with warnings/errors"
+          fi
+          
+          echo "Results written to: $RESULT_FILE"
+          echo "result_file=$RESULT_FILE" >> $GITHUB_OUTPUT
+
+      - name: Count errors and evaluate compliance
+        run: |
+          echo "Counting errors in compliance results"
+          echo "===================================="
+
+          RESULT_FILE="${{ steps.validate-compliance.outputs.result_file }}"
+          
+          if [[ ! -f "$RESULT_FILE" ]]; then
+            echo "Error: Results file not found"
+            exit 1
+          fi
+
+          echo "Analyzing results from: $RESULT_FILE"
+          cat "$RESULT_FILE"
+          echo ""
+
+          # Install jq if not available
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "Installing jq..."
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+
+          # Count ERROR severity violations in the apictl output
+          ERROR_COUNT=$(jq '[
+            .[] | 
+            .rulesets[] | 
+            select(."rule-violations"?) | 
+            ."rule-violations"[] | 
+            select(.severity == "ERROR")
+          ] | length' "$RESULT_FILE")
+
+          # Count WARNING severity violations for informational purposes
+          WARN_COUNT=$(jq '[
+            .[] | 
+            .rulesets[] | 
+            select(."rule-violations"?) | 
+            ."rule-violations"[] | 
+            select(.severity == "WARN")
+          ] | length' "$RESULT_FILE")
+
+          echo "Number of ERROR violations found: $ERROR_COUNT"
+          echo "Number of WARN violations found: $WARN_COUNT"
+
+          # Display error details if any exist
+          if [[ $ERROR_COUNT -gt 0 ]]; then
+            echo ""
+            echo "ERROR violations details:"
+            echo "========================"
+            jq -r '.[] | .rulesets[] | select(."rule-violations"?) | ."rule-violations"[] | select(.severity == "ERROR") | "- Path: \(.path)\n  Message: \(.message)\n"' "$RESULT_FILE"
+          fi
+
+          # Display warning details if any exist
+          if [[ $WARN_COUNT -gt 0 ]]; then
+            echo ""
+            echo "WARNING violations details:"
+            echo "=========================="
+            jq -r '.[] | .rulesets[] | select(."rule-violations"?) | ."rule-violations"[] | select(.severity == "WARN") | "- Path: \(.path)\n  Message: \(.message)\n"' "$RESULT_FILE"
+          fi
+
+          if [[ $ERROR_COUNT -gt 0 ]]; then
+            echo "❌ Compliance validation failed with $ERROR_COUNT error(s)"
+            echo "Please fix all ERROR severity violations before proceeding."
+            exit 1
+          else
+            echo "✅ Compliance validation passed - no ERROR violations found"
+            if [[ $WARN_COUNT -gt 0 ]]; then
+              echo "Note: $WARN_COUNT warning(s) found - consider addressing these for better compliance"
+            fi
+          fi
+
+      - name: Generate HTML compliance report
+        if: always()
+        run: |
+          echo "Generating HTML compliance report"
+          echo "==============================="
+
+          RESULT_FILE="${{ steps.validate-compliance.outputs.result_file }}"
+          HTML_REPORT="compliance_report.html"
+
+          # Get current date/time
+          REPORT_DATE=$(date "+%Y-%m-%d %H:%M:%S UTC")
+
+          # Count violations again for the report
+          ERROR_COUNT=$(jq '[.[] | .rulesets[] | select(."rule-violations"?) | ."rule-violations"[] | select(.severity == "ERROR")] | length' "$RESULT_FILE" 2>/dev/null || echo "0")
+          WARN_COUNT=$(jq '[.[] | .rulesets[] | select(."rule-violations"?) | ."rule-violations"[] | select(.severity == "WARN")] | length' "$RESULT_FILE" 2>/dev/null || echo "0")
+
+          # Generate HTML report
+          cat > "$HTML_REPORT" << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>API Compliance Report</title>
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; line-height: 1.6; }
+                  .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+                  .summary { display: flex; gap: 20px; margin-bottom: 30px; }
+                  .metric { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; text-align: center; flex: 1; }
+                  .metric-value { font-size: 2rem; font-weight: bold; margin-bottom: 5px; }
+                  .error { color: #dc3545; }
+                  .warning { color: #ffc107; }
+                  .success { color: #28a745; }
+                  .violations { margin-top: 30px; }
+                  .violation-item { background: #fff; border-left: 4px solid #dc3545; margin: 10px 0; padding: 15px; border-radius: 0 8px 8px 0; }
+                  .violation-item.warning { border-left-color: #ffc107; }
+                  .violation-path { font-family: monospace; background: #f8f9fa; padding: 4px 8px; border-radius: 4px; font-size: 0.9em; }
+                  .no-violations { text-align: center; padding: 40px; color: #6c757d; }
+                  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em; }
+              </style>
+          </head>
+          <body>
+              <div class="header">
+                  <h1>🔍 API Compliance Validation Report</h1>
+                  <p><strong>Generated:</strong> REPORT_TIMESTAMP</p>
+                  <p><strong>ZIP File:</strong> ${{ inputs.zip_path }}</p>
+                  <p><strong>Workflow:</strong> ${{ github.workflow }} - Run #${{ github.run_number }}</p>
+              </div>
+
+              <div class="summary">
+                  <div class="metric">
+                      <div class="metric-value error">ERROR_COUNT_PLACEHOLDER</div>
+                      <div>Errors</div>
+                  </div>
+                  <div class="metric">
+                      <div class="metric-value warning">WARN_COUNT_PLACEHOLDER</div>
+                      <div>Warnings</div>
+                  </div>
+                  <div class="metric">
+                      <div class="metric-value OVERALL_STATUS_CLASS">OVERALL_STATUS_TEXT</div>
+                      <div>Overall Status</div>
+                  </div>
+              </div>
+          EOF
+
+          # Replace placeholders in HTML
+          sed -i "s/REPORT_TIMESTAMP/$REPORT_DATE/g" "$HTML_REPORT"
+          sed -i "s/ERROR_COUNT_PLACEHOLDER/$ERROR_COUNT/g" "$HTML_REPORT"
+          sed -i "s/WARN_COUNT_PLACEHOLDER/$WARN_COUNT/g" "$HTML_REPORT"
+
+          if [[ $ERROR_COUNT -gt 0 ]]; then
+              sed -i "s/OVERALL_STATUS_CLASS/error/g" "$HTML_REPORT"
+              sed -i "s/OVERALL_STATUS_TEXT/FAILED/g" "$HTML_REPORT"
+          else
+              sed -i "s/OVERALL_STATUS_CLASS/success/g" "$HTML_REPORT"
+              sed -i "s/OVERALL_STATUS_TEXT/PASSED/g" "$HTML_REPORT"
+          fi
+
+          # Add violations section
+          echo '<div class="violations">' >> "$HTML_REPORT"
+
+          if [[ $ERROR_COUNT -gt 0 ]]; then
+              echo '<h2>❌ Error Violations</h2>' >> "$HTML_REPORT"
+              jq -r '.[] | .rulesets[] | select(."rule-violations"?) | ."rule-violations"[] | select(.severity == "ERROR") | "<div class=\"violation-item\"><strong>Rule:</strong> \(.ruleId // "Unknown")<br><strong>Path:</strong> <span class=\"violation-path\">\(.path)</span><br><strong>Message:</strong> \(.message)</div>"' "$RESULT_FILE" >> "$HTML_REPORT" 2>/dev/null || echo '<p>No error details available</p>' >> "$HTML_REPORT"
+          fi
+
+          if [[ $WARN_COUNT -gt 0 ]]; then
+              echo '<h2>⚠️ Warning Violations</h2>' >> "$HTML_REPORT"
+              jq -r '.[] | .rulesets[] | select(."rule-violations"?) | ."rule-violations"[] | select(.severity == "WARN") | "<div class=\"violation-item warning\"><strong>Rule:</strong> \(.ruleId // "Unknown")<br><strong>Path:</strong> <span class=\"violation-path\">\(.path)</span><br><strong>Message:</strong> \(.message)</div>"' "$RESULT_FILE" >> "$HTML_REPORT" 2>/dev/null || echo '<p>No warning details available</p>' >> "$HTML_REPORT"
+          fi
+
+          if [[ $ERROR_COUNT -eq 0 && $WARN_COUNT -eq 0 ]]; then
+              echo '<div class="no-violations"><h2>✅ No Violations Found</h2><p>Your API compliance validation passed without any issues!</p></div>' >> "$HTML_REPORT"
+          fi
+
+          echo '</div>' >> "$HTML_REPORT"
+
+          # Add footer
+          cat >> "$HTML_REPORT" << 'EOF'
+              <div class="footer">
+                  <p>Report generated by GitHub Actions workflow. For technical details, see the raw JSON results.</p>
+              </div>
+          </body>
+          </html>
+          EOF
+
+          echo "HTML report generated: $HTML_REPORT"
+
+      - name: Upload compliance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-results
+          path: |
+            compliance_results.json
+            compliance_report.html
+          retention-days: 30
