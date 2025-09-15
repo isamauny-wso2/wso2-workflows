@@ -34,13 +34,13 @@ jobs:
 
       - name: Validate API Properties with Spectral
         id: validate-properties
-        uses: ./.github/workflows/validate-properties-spectral.yml
+        uses: apiscoach/wso2-workflows/.github/workflows/validate-properties-spectral.yml@main
         with:
           zip_path: ${{ inputs.changed_file }}
 
       - name: Validate API Compliance with apictl
         id: validate-compliance
-        uses: ./.github/workflows/validate-compliance-apictl.yml
+        uses: apiscoach/wso2-workflows/.github/workflows/validate-compliance-apictl.yml@main
         with:
           zip_path: ${{ inputs.changed_file }}
           environment: ${{ env.GIT_CD_BRANCH }}
@@ -48,7 +48,7 @@ jobs:
       - name: Get APIM OAuth Token
         if: failure() && (steps.validate-properties.outcome == 'failure' || steps.validate-compliance.outcome == 'failure')
         id: apim-auth
-        uses: ./get-apim-token
+        uses: apiscoach/wso2-github-actions/get-apim-token@main
         with:
           apim_base_url: ${{ secrets.WSO2_APIM_BASE_URL }}
           admin_username: ${{ secrets.WSO2_APIM_ADMIN_USERNAME }}
