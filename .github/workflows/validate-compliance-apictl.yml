@@ -7,39 +7,46 @@ on:
         description: 'Path to the ZIP file containing API'
         required: true
         type: string
+      environment:
+        description: 'apictl environment to use for validation'
+        required: true
+        type: string
 
 jobs:
   validate-compliance-apictl:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout this repository
         uses: actions/checkout@v4
+      
+      - name: Checkout wso2-rulesets repository
+        uses: actions/checkout@v4
+        with:
+          repository: '${{ github.repository_owner }}/wso2-rulesets'
+          path: 'wso2-rulesets'
+          token: ${{ secrets.GITHUB_TOKEN }}  
 
-      - name: Setup apictl
+      - name: Verify apictl availability
         run: |
-          echo "Downloading and setting up apictl"
-          echo "================================="
-          
-          # Download apictl (adjust version as needed)
-          curl -L https://github.com/wso2/product-apim-tooling/releases/download/v4.3.0/apictl-4.3.0-linux-x64.tar.gz -o apictl.tar.gz
-          tar -xzf apictl.tar.gz
-          sudo mv apictl /usr/local/bin/
-          chmod +x /usr/local/bin/apictl
-          
+          echo "Verifying apictl is available and configured"
+          echo "==========================================="
+
+          # Check if apictl is installed
+          if ! command -v apictl >/dev/null 2>&1; then
+            echo "Error: apictl is not installed or not in PATH"
+            echo "Please ensure apictl is installed on the self-hosted runner"
+            exit 1
+          fi
+
           # Verify installation
+          echo "apictl version:"
           apictl version
 
-      - name: Configure apictl environment
-        run: |
-          echo "Configuring apictl environment"
-          echo "=============================="
-          
-          # Add dev environment (adjust URL as needed)
-          apictl add env dev --apim https://localhost:9443 --token https://localhost:8243/token
-          
-          # Set default environment
-          apictl set --environment dev
+          # Check configured environments
+          echo ""
+          echo "Configured environments:"
+          apictl list envs
 
       - name: Validate API compliance
         id: validate-compliance
@@ -61,7 +68,7 @@ jobs:
           RESULT_FILE="compliance_results.json"
           
           # Run the command and capture both stdout and stderr
-          if apictl import api -e dev -f "$ZIP_FILE" --dry-run --format json > "$RESULT_FILE" 2>&1; then
+          if apictl import api -e "${{ inputs.environment }}" -f "$ZIP_FILE" --dry-run --format json > "$RESULT_FILE" 2>&1; then
             echo "apictl command completed successfully"
           else
             echo "apictl command completed with warnings/errors"
@@ -86,10 +93,11 @@ jobs:
           cat "$RESULT_FILE"
           echo ""
 
-          # Install jq if not available
+          # Check if jq is available
           if ! command -v jq >/dev/null 2>&1; then
-            echo "Installing jq..."
-            sudo apt-get update && sudo apt-get install -y jq
+            echo "Error: jq is not installed or not in PATH"
+            echo "Please ensure jq is installed on the self-hosted runner"
+            exit 1
           fi
 
           # Count ERROR severity violations in the apictl output
