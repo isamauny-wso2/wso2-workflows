@@ -19,7 +19,7 @@ jobs:
       - name: Checkout wso2-rulesets repository
         uses: actions/checkout@v4
         with:
-          repository: '$GITHUB_REPOSITORY_OWNER/wso2-rulesets'
+          repository: '${{ github.repository_owner }}/wso2-rulesets'
           path: 'wso2-rulesets'
           token: ${{ secrets.GITHUB_TOKEN }}
 
