@@ -16,6 +16,7 @@ env:
   GIT_BOT_USERNAME: ${{ secrets.WSO2_GIT_BOT_USERNAME }}
   GIT_BOT_EMAIL: ${{ secrets.WSO2_GIT_BOT_EMAIL }}
   GIT_BOT_PAT: ${{ secrets.WSO2_GIT_BOT_PAT }}
+
        
 jobs:
   release_apim_api:
@@ -30,6 +31,67 @@ jobs:
 
       - name: Extract repository name
         run: echo "CURRENT_REPO_NAME=$(echo $GITHUB_REPOSITORY | cut -d '/' -f 2)" >> $GITHUB_ENV
+
+      - name: Validate API Properties with Spectral
+        id: validate-properties
+        uses: ./.github/workflows/validate-properties-spectral.yml
+        with:
+          zip_path: ${{ inputs.changed_file }}
+
+      - name: Validate API Compliance with apictl
+        id: validate-compliance
+        uses: ./.github/workflows/validate-compliance-apictl.yml
+        with:
+          zip_path: ${{ inputs.changed_file }}
+          environment: ${{ env.GIT_CD_BRANCH }}
+
+      - name: Get APIM OAuth Token
+        if: failure() && (steps.validate-properties.outcome == 'failure' || steps.validate-compliance.outcome == 'failure')
+        id: apim-auth
+        uses: ./get-apim-token
+        with:
+          apim_base_url: ${{ secrets.WSO2_APIM_BASE_URL }}
+          admin_username: ${{ secrets.WSO2_APIM_ADMIN_USERNAME }}
+          admin_password: ${{ secrets.WSO2_APIM_ADMIN_PASSWORD }}
+          client_name: "lifecycle_management_client"
+          scopes: "apim:api_publish apim:api_manage apim:api_import_export"
+
+      - name: Change API Lifecycle State to CHANGES_REQUESTED
+        if: failure() && (steps.validate-properties.outcome == 'failure' || steps.validate-compliance.outcome == 'failure')
+        run: |
+          echo "Validation failed, changing API lifecycle state to CHANGES_REQUESTED"
+
+          # Extract ZIP file to get API details
+          TEMP_DIR=$(mktemp -d)
+          unzip "${{ inputs.changed_file }}" -d "$TEMP_DIR"
+
+          # Find and read api.yaml file
+          API_YAML_FILE=$(find "$TEMP_DIR" -name "api.yaml" -type f | head -1)
+
+          if [ -z "$API_YAML_FILE" ]; then
+            echo "Error: api.yaml file not found in ZIP"
+            exit 1
+          fi
+
+          echo "Found API YAML file: $API_YAML_FILE"
+
+          # Extract API ID from api.yaml
+          API_ID=$(yq eval '.data.id' "$API_YAML_FILE")
+          echo "API ID: $API_ID"
+
+          # Change lifecycle state via REST API
+          echo "Changing API lifecycle state to CHANGES_REQUESTED..."
+
+          LIFECYCLE_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer ${{ steps.apim-auth.outputs.access_token }}" \
+            "${{ secrets.WSO2_APIM_BASE_URL }}/api/am/publisher/v4/apis/change-lifecycle?apiId=$API_ID&action=Request%20Changes")
+
+          echo "Lifecycle change response: $LIFECYCLE_RESPONSE"
+          echo "API lifecycle state changed to CHANGES_REQUESTED due to compliance failures"
+
+          # Clean up temp directory
+          rm -rf "$TEMP_DIR"
+          exit 1
 
       - name: Fetch PR metadata
         uses: 8BitJonny/gh-get-current-pr@2.1.3
