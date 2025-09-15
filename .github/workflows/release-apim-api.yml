@@ -19,8 +19,23 @@ env:
 
        
 jobs:
+  validate-properties:
+    name: Validate API Properties with Spectral
+    uses: apiscoach/wso2-workflows/.github/workflows/validate-properties-spectral.yml@main
+    with:
+      zip_path: ${{ inputs.changed_file }}
+
+  validate-compliance:
+    name: Validate API Compliance with apictl
+    uses: apiscoach/wso2-workflows/.github/workflows/validate-compliance-apictl.yml@main
+    with:
+      zip_path: ${{ inputs.changed_file }}
+      environment: dev
+
   release_apim_api:
     name: Release WSO2 APIM API
+    needs: [validate-properties, validate-compliance]
+    if: always()
     runs-on: ubuntu-latest
 
     steps:
@@ -32,21 +47,8 @@ jobs:
       - name: Extract repository name
         run: echo "CURRENT_REPO_NAME=$(echo $GITHUB_REPOSITORY | cut -d '/' -f 2)" >> $GITHUB_ENV
 
-      - name: Validate API Properties with Spectral
-        id: validate-properties
-        uses: apiscoach/wso2-workflows/.github/workflows/validate-properties-spectral.yml@main
-        with:
-          zip_path: ${{ inputs.changed_file }}
-
-      - name: Validate API Compliance with apictl
-        id: validate-compliance
-        uses: apiscoach/wso2-workflows/.github/workflows/validate-compliance-apictl.yml@main
-        with:
-          zip_path: ${{ inputs.changed_file }}
-          environment: ${{ env.GIT_CD_BRANCH }}
-
       - name: Get APIM OAuth Token
-        if: failure() && (steps.validate-properties.outcome == 'failure' || steps.validate-compliance.outcome == 'failure')
+        if: needs.validate-properties.result == 'failure' || needs.validate-compliance.result == 'failure'
         id: apim-auth
         uses: apiscoach/wso2-github-actions/get-apim-token@main
         with:
@@ -57,7 +59,7 @@ jobs:
           scopes: "apim:api_publish apim:api_manage apim:api_import_export"
 
       - name: Change API Lifecycle State to CHANGES_REQUESTED
-        if: failure() && (steps.validate-properties.outcome == 'failure' || steps.validate-compliance.outcome == 'failure')
+        if: needs.validate-properties.result == 'failure' || needs.validate-compliance.result == 'failure'
         run: |
           echo "Validation failed, changing API lifecycle state to CHANGES_REQUESTED"
 
