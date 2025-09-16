@@ -24,6 +24,7 @@ jobs:
     uses: apiscoach/wso2-workflows/.github/workflows/validate-properties-spectral.yml@main
     with:
       zip_path: ${{ inputs.changed_file }}
+    secrets: inherit  
 
   validate-compliance:
     name: Validate API Compliance with apictl
@@ -31,12 +32,13 @@ jobs:
     with:
       zip_path: ${{ inputs.changed_file }}
       environment: dev
+    secrets: inherit  
 
   release_apim_api:
     name: Release WSO2 APIM API
     needs: [validate-properties, validate-compliance]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout Code
